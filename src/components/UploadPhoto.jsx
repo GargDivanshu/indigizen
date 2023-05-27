@@ -1,41 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 const UploadPhoto = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [imageDimensions, setImageDimensions] = useState({ width: null, height: null });
+  const [originalImage, setOriginalImage] = useState({ width: null, height: null });
 
   const handleFileInputChange = (event) => {
     const file = event.target.files[0];
     setSelectedFile(file);
-  };
 
-  useEffect(() => {
-    if (selectedFile) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const image = new Image();
-        image.src = reader.result;
-        image.onload = () => {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          canvas.width = 300;
-          canvas.height = 300;
-          ctx.drawImage(image, 0, 0, 300, 300);
+    // Create a preview URL for the selected image
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPreviewImage(reader.result);
 
-          const resizedImageURL = canvas.toDataURL('image/jpeg');
-          const width = 300;
-          const height = 300;
-          const widthInMillimeters = (width * 25.4) / 300;
-          const heightInMillimeters = (height * 25.4) / 300;
+      // Create an image element to get the dimensions and resize the image
+      const image = new Image();
+      image.src = reader.result;
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(image, 0, 0, 300, 300);
+        const resizedImageURL = canvas.toDataURL('image/jpeg');
 
-          setImageDimensions({ width, height, widthInMillimeters, heightInMillimeters });
-          setPreviewImage(resizedImageURL);
-        };
+        const width = image.width;
+        const height = image.height;
+        // Calculate the dimensions in millimeters (assuming 300 DPI resolution)
+        const widthInMillimeters = (width * 25.4) / 300;
+        const heightInMillimeters = (height * 25.4) / 300;
+        setImageDimensions({ width: 300, height: 300, widthInMillimeters, heightInMillimeters });
+        setPreviewImage(resizedImageURL);
+        setOriginalImage({ width, height });
       };
-      reader.readAsDataURL(selectedFile);
-    }
-  }, [selectedFile]);
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div>
@@ -45,6 +45,11 @@ const UploadPhoto = () => {
         <div>
           <p>Dimensions (pixels): {imageDimensions.width} x {imageDimensions.height}</p>
           <p>Dimensions (millimeters): {imageDimensions.widthInMillimeters} x {imageDimensions.heightInMillimeters}</p>
+        </div>
+      )}
+      {originalImage.width && (
+        <div>
+          <p>Original Image Dimensions (pixels): {originalImage.width} x {originalImage.height}</p>
         </div>
       )}
     </div>
