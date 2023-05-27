@@ -211,7 +211,8 @@ const UploadPhoto = () => {
       )}
 
 {previewImage && (
-        <form className="w-fit h-fit p-3 m-3 mx-auto bg-blue-500 rounded-md my-auto">
+        <form className="flex flex-col w-fit h-fit p-3 m-3 mx-auto bg-blue-500 rounded-md my-auto">
+          <span className="text-white my-3">Make changes here</span>
           <label>
             <span className="text-xl font-semibold text-white">Title:</span>
             <input
