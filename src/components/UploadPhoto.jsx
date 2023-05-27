@@ -84,14 +84,16 @@ const UploadPhoto = () => {
   };
 
   const handleMouseDown = (event, id) => {
-    if (event.button === 0) {
+    if (event.button === 0 || event.type === "touchstart") {
       event.stopPropagation();
+      const clientX = event.type === "touchstart" ? event.touches[0].clientX : event.clientX;
+      const clientY = event.type === "touchstart" ? event.touches[0].clientY : event.clientY;
       const updatedData = draggableData.map((data) => {
         if (data.id === id) {
           return {
             ...data,
             isDragging: true,
-            dragStartPosition: { x: event.clientX, y: event.clientY },
+            dragStartPosition: { x: clientX, y: clientY },
           };
         }
         return data;
@@ -101,7 +103,7 @@ const UploadPhoto = () => {
   };
 
   const handleMouseUp = (event, id) => {
-    if (event.button === 0) {
+    if (event.button === 0 || event.type === "touchend") {
       event.stopPropagation();
       const updatedData = draggableData.map((data) => {
         if (data.id === id) {
@@ -114,17 +116,19 @@ const UploadPhoto = () => {
   };
 
   const handleMouseMove = (event, id) => {
+    const clientX = event.type === "touchmove" ? event.touches[0].clientX : event.clientX;
+    const clientY = event.type === "touchmove" ? event.touches[0].clientY : event.clientY;
     const updatedData = draggableData.map((data) => {
       if (data.id === id && data.isDragging) {
-        const offsetX = event.clientX - data.dragStartPosition.x;
-        const offsetY = event.clientY - data.dragStartPosition.y;
+        const offsetX = clientX - data.dragStartPosition.x;
+        const offsetY = clientY - data.dragStartPosition.y;
         return {
           ...data,
           position: {
             x: data.position.x + offsetX,
             y: data.position.y + offsetY,
           },
-          dragStartPosition: { x: event.clientX, y: event.clientY },
+          dragStartPosition: { x: clientX, y: clientY },
         };
       }
       return data;
@@ -153,99 +157,102 @@ const UploadPhoto = () => {
 
   return (
     <div>
-     
+      <input
+        type="file"
+        className="hidden"
+        id="uploadInput"
+        onChange={handleFileInputChange}
+      />
 
-<input
-  type="file"
-  className="hidden"
-  id="uploadInput"
-  onChange={handleFileInputChange}
-/>
+      <label
+        htmlFor="uploadInput"
+        className="flex mx-auto w-fit my-8 items-center px-4 py-2 bg-blue-500 text-white rounded-md cursor-pointer"
+      >
+        <BsUpload className="mr-2" />
+        Upload File
+      </label>
+      <div className="grid md:grid-cols-2 sm:grid-cols-1 justify-center my-5">
+        {previewImage && (
+          <div
+            className="mx-auto overflow-hidden relative w-[300px] h-[300px]"
+            ref={containerRef}
+          >
+            <img
+              src={previewImage}
+              alt="Preview"
+              style={{ width: "100%", height: "100%" }}
+            />
+            {draggableData.map((data) => (
+              <div
+                key={data.id}
+                style={{
+                  position: "absolute",
+                  top: `${data.position.y}px`,
+                  left: `${data.position.x}px`,
+                  userSelect: "none",
+                  zIndex: data.isDragging ? 2 : 1,
+                  cursor: data.isDragging ? "grabbing" : "grab",
+                }}
+                onMouseDown={(event) => handleMouseDown(event, data.id)}
+                onMouseUp={(event) => handleMouseUp(event, data.id)}
+                onMouseMove={(event) => handleMouseMove(event, data.id)}
+                onTouchStart={(event) => handleMouseDown(event, data.id)}
+                onTouchEnd={(event) => handleMouseUp(event, data.id)}
+                onTouchMove={(event) => handleMouseMove(event, data.id)}
+              >
+                <input
+                  type="text"
+                  value={data.value}
+                  className="select-none"
+                  style={{
+                    margin: 0,
+                    color: "white",
+                    background: "rgba(0, 0, 0, 0.5)",
+                    padding: "4px 8px",
+                    border: "none",
+                  }}
+                  readOnly
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
-<label htmlFor="uploadInput" className="flex mx-auto w-fit my-8 items-center px-4 py-2 bg-blue-500 text-white rounded-md cursor-pointer">
-  <BsUpload className="mr-2" />
-  Upload File
-</label>
-<div className="grid md:grid-cols-2 sm:grid-cols-1 justify-center my-5">
-      {previewImage && (
-        <div
-          className="mx-auto overflow-hidden relative w-[300px] h-[300px]"
-          ref={containerRef}
-        >
-          <img
-            src={previewImage}
-            alt="Preview"
-            style={{ width: "100%", height: "100%" }}
-          />
-          {draggableData.map((data) => (
-            <div
-              key={data.id}
-              style={{
-                position: "absolute",
-                top: `${data.position.y}px`,
-                left: `${data.position.x}px`,
-                userSelect: "none",
-                zIndex: data.isDragging ? 2 : 1,
-                cursor: data.isDragging ? "grabbing" : "grab",
-              }}
-              onMouseDown={(event) => handleMouseDown(event, data.id)}
-              onMouseUp={(event) => handleMouseUp(event, data.id)}
-              onMouseMove={(event) => handleMouseMove(event, data.id)}
-            >
+        {previewImage && (
+          <form className=" my-5 flex flex-col w-fit h-fit p-3 m-3 mx-auto bg-blue-500 rounded-md my-auto">
+            <span className="text-white my-3">Make changes here</span>
+            <label>
+              <span className="text-xl font-semibold text-white">Title:</span>
               <input
                 type="text"
-                value={data.value}
-                className="select-none"
-                style={{
-                  margin: 0,
-                  color: "white",
-                  background: "rgba(0, 0, 0, 0.5)",
-                  padding: "4px 8px",
-                  border: "none",
-                }}
-                readOnly
+                className="bg-blue-500 text-white mx-2 border-emphasis outline-none"
+                value={draggableData.find((data) => data.id === "title").value}
+                onChange={(event) => handleInputChange(event, "title")}
               />
-            </div>
-          ))}
-        </div>
-      )}
-
-{previewImage && (
-        <form className=" my-5 flex flex-col w-fit h-fit p-3 m-3 mx-auto bg-blue-500 rounded-md my-auto">
-          <span className="text-white my-3">Make changes here</span>
-          <label>
-            <span className="text-xl font-semibold text-white">Title:</span>
-            <input
-              type="text"
-              className="bg-blue-500 text-white mx-2 border-emphasis outline-none"
-              value={draggableData.find((data) => data.id === "title").value}
-              onChange={(event) => handleInputChange(event, "title")}
-            />
-          </label>
-          <br />
-          <label>
-            <span className="text-xl font-semibold text-white">Date:</span>
-            <input
-              className="bg-blue-500  text-white mx-2 border-emphasis outline-none"
-              type="text"
-              value={draggableData.find((data) => data.id === "date").value}
-              onChange={(event) => handleInputChange(event, "date")}
-            />
-          </label>
-          <br />
-          <label>
-            <span className="text-xl font-semibold text-white">Link:</span>
-            <input
-              className="bg-blue-500  text-white mx-2 border-emphasis outline-none"
-              type="text"
-              value={draggableData.find((data) => data.id === "link").value}
-              onChange={(event) => handleInputChange(event, "link")}
-            />
-          </label>
-        </form>
-      )}
-
-</div>
+            </label>
+            <br />
+            <label>
+              <span className="text-xl font-semibold text-white">Date:</span>
+              <input
+                className="bg-blue-500  text-white mx-2 border-emphasis outline-none"
+                type="text"
+                value={draggableData.find((data) => data.id === "date").value}
+                onChange={(event) => handleInputChange(event, "date")}
+              />
+            </label>
+            <br />
+            <label>
+              <span className="text-xl font-semibold text-white">Link:</span>
+              <input
+                className="bg-blue-500  text-white mx-2 border-emphasis outline-none"
+                type="text"
+                value={draggableData.find((data) => data.id === "link").value}
+                onChange={(event) => handleInputChange(event, "link")}
+              />
+            </label>
+          </form>
+        )}
+      </div>
     </div>
   );
 };
