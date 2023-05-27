@@ -10,12 +10,12 @@ const UploadPhoto = () => {
     const file = event.target.files[0];
     setSelectedFile(file);
 
-    // Create a preview URL for the selected image
+   
     const reader = new FileReader();
     reader.onload = () => {
       setPreviewImage(reader.result);
 
-      // Create an image element to get the dimensions and resize the image
+    
       const image = new Image();
       image.src = reader.result;
       image.onload = () => {
@@ -26,7 +26,7 @@ const UploadPhoto = () => {
 
         const width = image.width;
         const height = image.height;
-        // Calculate the dimensions in millimeters (assuming 300 DPI resolution)
+        
         const widthInMillimeters = (width * 25.4) / 300;
         const heightInMillimeters = (height * 25.4) / 300;
         setImageDimensions({ width: 300, height: 300, widthInMillimeters, heightInMillimeters });
@@ -44,12 +44,13 @@ const UploadPhoto = () => {
       {imageDimensions.width && (
         <div>
           <p>Dimensions (pixels): {imageDimensions.width} x {imageDimensions.height}</p>
-          <p>Dimensions (millimeters): {imageDimensions.widthInMillimeters} x {imageDimensions.heightInMillimeters}</p>
+          
         </div>
       )}
       {originalImage.width && (
         <div>
           <p>Original Image Dimensions (pixels): {originalImage.width} x {originalImage.height}</p>
+          <p>Original Dimensions (millimeters): {imageDimensions.widthInMillimeters} x {imageDimensions.heightInMillimeters}</p>
         </div>
       )}
     </div>
