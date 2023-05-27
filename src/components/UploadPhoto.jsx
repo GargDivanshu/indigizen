@@ -166,7 +166,7 @@ const UploadPhoto = () => {
   <BsUpload className="mr-2" />
   Upload File
 </label>
-<div className="grid grid-cols-2 justify-center">
+<div className="grid md:grid-cols-2 sm:grid-cols-1 justify-center my-5">
       {previewImage && (
         <div
           className="mx-auto overflow-hidden relative w-[300px] h-[300px]"
@@ -211,7 +211,7 @@ const UploadPhoto = () => {
       )}
 
 {previewImage && (
-        <form className="flex flex-col w-fit h-fit p-3 m-3 mx-auto bg-blue-500 rounded-md my-auto">
+        <form className=" my-5 flex flex-col w-fit h-fit p-3 m-3 mx-auto bg-blue-500 rounded-md my-auto">
           <span className="text-white my-3">Make changes here</span>
           <label>
             <span className="text-xl font-semibold text-white">Title:</span>
