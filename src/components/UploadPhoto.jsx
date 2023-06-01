@@ -1,19 +1,10 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { BsUpload } from "react-icons/bs";
 import { RiImageAddFill } from "react-icons/ri";
 
 const UploadPhoto = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
-  const [imageDimensions, setImageDimensions] = useState({
-    width: null,
-    height: null,
-  });
-  const [originalImage, setOriginalImage] = useState({
-    width: null,
-    height: null,
-  });
-
   const [draggableData, setDraggableData] = useState([
     {
       id: "title",
@@ -39,6 +30,33 @@ const UploadPhoto = () => {
   ]);
 
   const containerRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (previewImage) {
+      const image = new Image();
+      image.src = previewImage;
+      image.onload = () => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
+
+        const aspectRatio = image.width / image.height;
+        let width, height;
+        if (aspectRatio > 1) {
+          width = 300;
+          height = width / aspectRatio;
+        } else {
+          height = 300;
+          width = height * aspectRatio;
+        }
+
+        canvas.width = 300;
+        canvas.height = 300;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0, width, height);
+      };
+    }
+  }, [previewImage]);
 
   const handleFileInputChange = (event) => {
     const file = event.target.files[0];
@@ -47,38 +65,6 @@ const UploadPhoto = () => {
     const reader = new FileReader();
     reader.onload = () => {
       setPreviewImage(reader.result);
-
-      const image = new Image();
-      image.src = reader.result;
-      image.onload = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(image, 0, 0, 300, 300);
-        const resizedImageURL = canvas.toDataURL("image/jpeg");
-
-        const width = image.width;
-        const height = image.height;
-
-        const widthInMillimeters = (width * 25.4) / 300;
-        const heightInMillimeters = (height * 25.4) / 300;
-        setImageDimensions({
-          width: 300,
-          height: 300,
-          widthInMillimeters,
-          heightInMillimeters,
-        });
-        setPreviewImage(resizedImageURL);
-        setOriginalImage({ width, height });
-
-        const currentDate = getCurrentDate();
-        const updatedData = draggableData.map((data) => {
-          if (data.id === "date") {
-            return { ...data, value: currentDate };
-          }
-          return data;
-        });
-        setDraggableData(updatedData);
-      };
     };
     reader.readAsDataURL(file);
   };
@@ -147,22 +133,21 @@ const UploadPhoto = () => {
     setDraggableData(updatedData);
   };
 
-  const getCurrentDate = () => {
-    const currentDate = new Date();
-    const day = currentDate.getDate().toString().padStart(2, "0");
-    const month = (currentDate.getMonth() + 1).toString().padStart(2, "0");
-    const year = currentDate.getFullYear().toString().substr(-2);
-    return `${day}-${month}-${year}`;
+  const handleAddField = () => {
+    const newFieldId = `field${draggableData.length + 1}`;
+    const newField = {
+      id: newFieldId,
+      value: "New Field",
+      position: { x: 0, y: 0 },
+      isDragging: false,
+      dragStartPosition: { x: 0, y: 0 },
+    };
+    setDraggableData((prevData) => [...prevData, newField]);
   };
 
   return (
     <div>
-      <input
-        type="file"
-        className="hidden"
-        id="uploadInput"
-        onChange={handleFileInputChange}
-      />
+      <input type="file" className="hidden" id="uploadInput" onChange={handleFileInputChange} />
 
       <label
         htmlFor="uploadInput"
@@ -177,11 +162,7 @@ const UploadPhoto = () => {
             className="mx-auto overflow-hidden relative w-[300px] h-[300px]"
             ref={containerRef}
           >
-            <img
-              src={previewImage}
-              alt="Preview"
-              style={{ width: "100%", height: "100%" }}
-            />
+            <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
             {draggableData.map((data) => (
               <div
                 key={data.id}
@@ -219,38 +200,27 @@ const UploadPhoto = () => {
         )}
 
         {previewImage && (
-          <form className=" my-5 flex flex-col w-fit h-fit p-3 m-3 mx-auto bg-blue-500 rounded-md my-auto">
-            <span className="text-white my-3">Make changes here</span>
-            <label>
-              <span className="text-xl font-semibold text-white">Title:</span>
-              <input
-                type="text"
-                className="bg-blue-500 text-white mx-2 border-emphasis outline-none"
-                value={draggableData.find((data) => data.id === "title").value}
-                onChange={(event) => handleInputChange(event, "title")}
-              />
-            </label>
-            <br />
-            <label>
-              <span className="text-xl font-semibold text-white">Date:</span>
-              <input
-                className="bg-blue-500  text-white mx-2 border-emphasis outline-none"
-                type="text"
-                value={draggableData.find((data) => data.id === "date").value}
-                onChange={(event) => handleInputChange(event, "date")}
-              />
-            </label>
-            <br />
-            <label>
-              <span className="text-xl font-semibold text-white">Link:</span>
-              <input
-                className="bg-blue-500  text-white mx-2 border-emphasis outline-none"
-                type="text"
-                value={draggableData.find((data) => data.id === "link").value}
-                onChange={(event) => handleInputChange(event, "link")}
-              />
-            </label>
-          </form>
+          <div className="mx-auto">
+            <div className="flex items-center">
+              <RiImageAddFill className="mr-2" />
+              <button
+                className="px-4 py-2 bg-blue-500 text-white rounded-md"
+                onClick={handleAddField}
+              >
+                Add Field
+              </button>
+            </div>
+            {draggableData.map((data) => (
+              <div className="my-2" key={data.id}>
+                <input
+                  type="text"
+                  value={data.value}
+                  onChange={(event) => handleInputChange(event, data.id)}
+                  className="px-2 py-1 border rounded-md"
+                />
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
