@@ -211,13 +211,16 @@ const UploadPhoto = () => {
               </button>
             </div>
             {draggableData.map((data) => (
-              <div className="my-2" key={data.id}>
+              <div className="my-2 flex" key={data.id}>
                 <input
                   type="text"
                   value={data.value}
                   onChange={(event) => handleInputChange(event, data.id)}
                   className="px-2 py-1 border rounded-md"
                 />
+                <span className="text-sm mr-2">
+      ({data.position.x}, {data.position.y})
+    </span>
               </div>
             ))}
           </div>
