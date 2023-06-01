@@ -7,6 +7,8 @@ const UploadPhoto = () => {
   const [previewImage, setPreviewImage] = useState(null);
   const [originalImageDimensions, setOriginalImageDimensions] = useState({ width: 0, height: 0 });
 const [newImageDimensions, setNewImageDimensions] = useState({ width: 0, height: 0 });
+  const [date, setDate] = useState("");
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
 
   const [draggableData, setDraggableData] = useState([
     {
@@ -66,24 +68,58 @@ const [newImageDimensions, setNewImageDimensions] = useState({ width: 0, height:
   
         // Set the original image dimensions
         setOriginalImageDimensions({ width: image.width, height: image.height });
-        console.log(width + " "  + height)
         setNewImageDimensions({ width: width, height: height });
 
       };
     }
   }, [previewImage]);
-  
+
+
+  const getCurrentDate = () => {
+    const currentDate = new Date();
+    const day = currentDate.getDate().toString().padStart(2, "0");
+    const month = (currentDate.getMonth() + 1).toString().padStart(2, "0");
+    const year = currentDate.getFullYear().toString().slice(-2);
+    return `${day}/${month}/${year}`;
+  };
+
+  const calculateImageOffset = () => {
+    
+    const containerElement = containerRef.current;
+    const containerRect = containerElement.getBoundingClientRect();
+    const imageRect = canvasRef.current.getBoundingClientRect();
+
+    const offsetX = imageRect.left - containerRect.left;
+    setOffset({ x: offsetX, y: offsetY });
+    const offsetY = imageRect.top - containerRect.top;
+
+    console.log("Image Offset:", offsetX, offsetY);
+  };
 
   const handleFileInputChange = (event) => {
-    const file = event.target.files[0];
-    setSelectedFile(file);
+  const file = event.target.files[0];
+  setSelectedFile(file);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPreviewImage(reader.result);
-    };
-    reader.readAsDataURL(file);
+  const reader = new FileReader();
+  reader.onload = () => {
+    setPreviewImage(reader.result);
   };
+  reader.readAsDataURL(file);
+
+  const currentDate = getCurrentDate(); // Get the current date
+  const updatedData = draggableData.map((data) => {
+    if (data.id === "date") {
+      return { ...data, value: currentDate }; // Update the value with the current date
+    }
+    return data;
+  });
+  setDraggableData(updatedData);
+
+
+
+ 
+};
+
 
   const handleMouseDown = (event, id) => {
     if (event.button === 0 || event.type === "touchstart") {
@@ -346,9 +382,12 @@ const [newImageDimensions, setNewImageDimensions] = useState({ width: 0, height:
     </div>
     <span className="text-sm mx-2 justify-center m-auto">Height </span>
   </div>
+  
 ))}
 
-
+<button className="px-4 py-2 bg-blue-500 text-white rounded-md">
+  Save
+</button>
 
   </div>
 )}
@@ -364,6 +403,10 @@ const [newImageDimensions, setNewImageDimensions] = useState({ width: 0, height:
 
       <div className="my-4 text-center">
         New Image Dimensions: {newImageDimensions.width}px x {newImageDimensions.height}px
+      </div>
+
+      <div className="text-center">
+        Offset of the image from the container: {offset.x}px, {offset.y}px
       </div>
 
 
