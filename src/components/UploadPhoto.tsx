@@ -1,7 +1,29 @@
-import React, { useState, useRef, useEffect } from "react";
+import * as React from 'react';
+import { useState, useRef, useEffect } from "react";
 import { BsUpload } from "react-icons/bs";
 import { RiImageAddFill } from "react-icons/ri";
 import { GrPowerReset } from "react-icons/gr";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/table"
+
+
+interface DraggableItem {
+  id: string;
+  value: string;
+  position: { x: number; y: number };
+  isDragging: boolean;
+  dragStartPosition: { x: number; y: number };
+  width: number;
+  height: number;
+}
+
 
 const UploadPhoto = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -14,10 +36,11 @@ const UploadPhoto = () => {
     width: 0,
     height: 0,
   });
-  const [date, setDate] = useState("");
+  // const [date, setDate] = useState("");
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
-  const [draggableData, setDraggableData] = useState([
+
+  const [draggableData, setDraggableData] = useState<DraggableItem[]>([
     {
       id: "title",
       value: "Title",
@@ -97,9 +120,9 @@ const UploadPhoto = () => {
     const imageRect = canvasRef.current.getBoundingClientRect();
 
     const offsetX = imageRect.left - containerRect.left;
-    setOffset({ x: offsetX, y: offsetY });
+    
     const offsetY = imageRect.top - containerRect.top;
-
+    setOffset({ x: offsetX, y: offsetY });
     console.log("Image Offset:", offsetX, offsetY);
   };
 
@@ -193,12 +216,14 @@ const UploadPhoto = () => {
 
   const handleAddField = () => {
     const newFieldId = `field${draggableData.length + 1}`;
-    const newField = {
+    const newField: DraggableItem = {
       id: newFieldId,
       value: "New Field",
       position: { x: 0, y: 0 },
       isDragging: false,
       dragStartPosition: { x: 0, y: 0 },
+      width: 100,
+      height: 20,
     };
     setDraggableData((prevData) => [...prevData, newField]);
   };
@@ -347,7 +372,7 @@ const UploadPhoto = () => {
                         <button
                           className="px-2 border rounded-md text-blue-500"
                           onClick={() => {
-                            const newValue = parseInt(data.width) + 1;
+                            const newValue = data.width - 1;
                             handleWidthChange(
                               { target: { value: newValue } },
                               data.id
@@ -360,7 +385,7 @@ const UploadPhoto = () => {
                         <button
                           className="px-2 border rounded-md text-blue-500"
                           onClick={() => {
-                            const newValue = parseInt(data.width) - 1;
+                            const newValue = data.width - 1;
                             handleWidthChange(
                               { target: { value: newValue } },
                               data.id
@@ -386,7 +411,7 @@ const UploadPhoto = () => {
                         <button
                           className="px-2 border rounded-md text-blue-500"
                           onClick={() => {
-                            const newValue = parseInt(data.height) + 1;
+                            const newValue = data.height + 1;
                             handleHeightChange(
                               { target: { value: newValue } },
                               data.id
@@ -399,7 +424,7 @@ const UploadPhoto = () => {
                         <button
                           className="px-2 border rounded-md text-blue-500"
                           onClick={() => {
-                            const newValue = parseInt(data.height) - 1;
+                            const newValue = data.height - 1;
                             handleHeightChange(
                               { target: { value: newValue } },
                               data.id

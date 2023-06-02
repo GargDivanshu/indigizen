@@ -1,8 +1,8 @@
-
+import * as React from 'react';
 import './App.css';
 import UploadPhoto from './components/UploadPhoto';
 
-function App() {
+const App: React.FC = () => {
   return (
     <div className="bg-blank h-screen">
       <div className="pt-3 w-full bg-panels">
