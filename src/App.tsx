@@ -1,6 +1,8 @@
 import * as React from 'react';
 import './App.css';
 import UploadPhoto from './components/UploadPhoto';
+// import { Toaster } from "../src/components/ui/use-toast"
+
 
 const App: React.FC = () => {
   return (

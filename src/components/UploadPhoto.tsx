@@ -2,11 +2,18 @@ import * as React from 'react';
 import { useState, useRef, useEffect } from "react";
 import { BsUpload } from "react-icons/bs";
 import { RiImageAddFill } from "react-icons/ri";
-import { GrPowerReset } from "react-icons/gr";
+import { BiReset } from "react-icons/bi";
+import {AiOutlineDelete} from 'react-icons/ai'
+import {DraggableItem} from '../types'
+import { fileSchema, dimensionSchema } from './../validator/index';
+
+import { ToastAction } from "./ui/toast"
+import { useToast } from "./ui/use-toast"
+
 import {
   Table,
   TableBody,
-  TableCaption,
+  // TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -14,18 +21,12 @@ import {
 } from "./ui/table"
 
 
-interface DraggableItem {
-  id: string;
-  value: string;
-  position: { x: number; y: number };
-  isDragging: boolean;
-  dragStartPosition: { x: number; y: number };
-  width: number;
-  height: number;
-}
 
 
 const UploadPhoto = () => {
+  const { toast } = useToast()
+
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [originalImageDimensions, setOriginalImageDimensions] = useState({
@@ -70,6 +71,8 @@ const UploadPhoto = () => {
     },
   ]);
 
+  const [error, setError] = useState("");
+
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -106,6 +109,31 @@ const UploadPhoto = () => {
     }
   }, [previewImage]);
 
+  // useEffect(() => {
+  //    if(error.length > 0){
+  //       generateError(error)
+  //    }
+  // }, [error])
+
+  // const setErrorWithTimeout = (title) => {
+  //   setError(title); // Set the error value to "XYZ"
+  
+  //   setTimeout(() => {
+  //     setError(""); // Clear the error value after 2 seconds
+  //   }, 2000);
+  // };
+
+
+  // const generateError = (title) => {
+  //   toast({
+  //     title:  `${title}`,
+  //     // description: `${desc}`,
+  //     // action: (
+  //     //   <ToastAction altText="Goto schedule to undo">Undo</ToastAction>
+  //     // ),
+  //   })
+  // }
+
   const getCurrentDate = () => {
     const currentDate = new Date();
     const day = currentDate.getDate().toString().padStart(2, "0");
@@ -128,22 +156,45 @@ const UploadPhoto = () => {
 
   const handleFileInputChange = (event) => {
     const file = event.target.files[0];
-    setSelectedFile(file);
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPreviewImage(reader.result);
-    };
-    reader.readAsDataURL(file);
-
-    const currentDate = getCurrentDate(); // Get the current date
-    const updatedData = draggableData.map((data) => {
-      if (data.id === "date") {
-        return { ...data, value: currentDate }; // Update the value with the current date
+  
+    if (file) {
+      // Validate the selected file using the schema
+      const validationResult = fileSchema.safeParse(file);
+  
+      if (validationResult.success) {
+        setSelectedFile(file);
+  
+        const reader = new FileReader();
+        reader.onload = () => {
+          setPreviewImage(reader.result);
+        };
+        reader.readAsDataURL(file);
+  
+        const currentDate = getCurrentDate(); // Get the current date
+        const updatedData = draggableData.map((data) => {
+          if (data.id === "date") {
+            return { ...data, value: currentDate }; // Update the value with the current date
+          }
+          return data;
+        });
+        setDraggableData(updatedData);
+      } else {
+        // Handle the validation error
+        // generateError("File type not supported", "Please upload a valid image file")
+        // toast({
+        //   title:  `File type not supported`,
+        //   description: `Please upload a valid image file`,
+        //   // action: (
+        //   //   <ToastAction altText="Goto schedule to undo">Undo</ToastAction>
+        //   // ),
+        // })
+        // setErrorWithTimeout("File type not supported")
+        
+        console.error("File type not supported");
+        
+        
       }
-      return data;
-    });
-    setDraggableData(updatedData);
+    }
   };
 
   const handleMouseDown = (event, id) => {
@@ -228,26 +279,66 @@ const UploadPhoto = () => {
     setDraggableData((prevData) => [...prevData, newField]);
   };
 
+  const handleRemoveField = (fieldId: string) => {
+    setDraggableData((prevData) =>
+      prevData.filter((item) => item.id !== fieldId)
+    );
+  };
+
   const handleWidthChange = (event, id) => {
-    const width = event.target.value;
-    const updatedData = draggableData.map((data) => {
-      if (data.id === id) {
-        return { ...data, width };
+    const widthInput = event.target.value;
+    const width = parseInt(widthInput, 10); // Convert the input to an integer
+  
+    if (!isNaN(width)) {
+      // Validate the input using the schema
+      const validationResult = dimensionSchema.safeParse(width);
+  
+      if (validationResult.success) {
+        const updatedData = draggableData.map((data) => {
+          if (data.id === id) {
+            return { ...data, width };
+          }
+          return data;
+        });
+        setDraggableData(updatedData);
+      } else {
+        // Handle the validation error
+        toast({
+          title: "Scheduled: Catch up ",
+          description: "Friday, February 10, 2023 at 5:57 PM",
+          // action: (
+          //   <ToastAction altText="Goto schedule to undo">Undo</ToastAction>
+          // ),
+        })
       }
-      return data;
-    });
-    setDraggableData(updatedData);
+    } else {
+      // Handle invalid input
+      console.error("Invalid width input");
+    }
   };
 
   const handleHeightChange = (event, id) => {
-    const height = event.target.value;
-    const updatedData = draggableData.map((data) => {
-      if (data.id === id) {
-        return { ...data, height };
+    const heightInput = event.target.value;
+    const height = parseInt(heightInput, 10);
+
+    if(!isNaN(height)){
+       const validationResult = dimensionSchema.safeParse(height);
+
+      if (validationResult.success) {
+        const updatedData = draggableData.map((data) => {
+          if (data.id === id) {
+            return { ...data, height };
+          }
+          return data;
+        });
+        setDraggableData(updatedData);
+      } else {
+        console.error("Width must be an integer");
       }
-      return data;
-    });
-    setDraggableData(updatedData);
+    } else {
+      console.error("Invalid width input");
+    }
+    
   };
 
   return (
@@ -268,7 +359,7 @@ const UploadPhoto = () => {
           Upload File
         </label>
       </div>
-      <div className={`bg-blank h-full text-sm text-white`}>
+      <div className={`bg-blank h-full text-xs text-white`}>
         <div className="relative h-full grid grid-cols-2 justify-around">
           <div>
             {previewImage && (
@@ -321,7 +412,7 @@ const UploadPhoto = () => {
 
           <div className="absolute px-4 right-0 pt-2 border-l-[1px] border-border h-full bg-panels">
             {previewImage && (
-              <div className="mx-auto h-full">
+              <div className="mx-auto">
                 <div className="flex items-center">
                   <RiImageAddFill className="mr-2" />
                   <button
@@ -331,10 +422,127 @@ const UploadPhoto = () => {
                     Add Field
                   </button>
                 </div>
+
+                <Table>
+                    {/* <TableCaption>A list of your recent invoices.</TableCaption> */}
+                    <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[150px]">Title</TableHead>
+                  <TableHead className="w-[127px]">Width</TableHead>
+                  <TableHead className="w-[127px]"> Height</TableHead>
+                  <TableHead className="w-[15px] text-right">Reset</TableHead>
+                  <TableHead className="w-[15px] text-right">Delete</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+              
                 {draggableData.map((data) => (
-                  <div className="my-2 flex" key={data.id}>
+
+                  
+
+
+                  <TableRow className=" text-black" key={data.id}>
+                    
+
+                   <TableCell className="w-[210px]">
+                    <input
+                      type="text"
+                      value={data.value}
+                      onChange={(event) => handleInputChange(event, data.id)}
+                      className="px-2 py-1 border rounded-md w-[120px]"
+                    />
+                    <span className="text-[11px] text-white ml-2">
+                      ({data.position.x}, {data.position.y})
+                    </span>
+                    </TableCell>
+
+                    <TableCell>
+                    <div className="flex">
+                      <input
+                        type="text"
+                        value={data.width}
+                        onChange={(event) => handleWidthChange(event, data.id)}
+                        className="px-2 border rounded-md"
+                        style={{ width: "50px" }}
+                      />
+                      <div className="flex flex-col mx-2">
+                        <button
+                          // className="px-2 border rounded-md text-blue-500"
+                          onClick={() => {
+                            const newValue = data.width + 1;
+                            handleWidthChange(
+                              { target: { value: newValue } },
+                              data.id
+                            );
+                          }}
+                        >
+                          <span className="text-white text-[10px]">▲</span>
+                        </button>
+
+                        <button
+                          // className="px-2 border rounded-md text-blue-500"
+                          onClick={() => {
+                            const newValue = data.width - 1;
+                            handleWidthChange(
+                              { target: { value: newValue } },
+                              data.id
+                            );
+                          }}
+                        >
+                          <span className="text-white text-[10px]">▼</span>
+                        </button>
+                      </div>
+                    </div>
+                    </TableCell>
+                    {/* <span className="text-xs mx-2 justify-center m-auto">
+                      Width{" "}
+                    </span> */}
+
+                < TableCell>
+                    <div className="flex">
+                      <input
+                        type="text"
+                        value={data.height}
+                        onChange={(event) => handleHeightChange(event, data.id)}
+                        className="px-2 border rounded-md"
+                        style={{ width: "50px" }}
+                      />
+                      <div className="flex flex-col mx-2">
+                        <button
+                          // className="px-2 border rounded-md text-blue-500"
+                          onClick={() => {
+                            const newValue = data.height + 1;
+                            handleHeightChange(
+                              { target: { value: newValue } },
+                              data.id
+                            );
+                          }}
+                        >
+                          <span className="text-white text-[10px]">▲</span>
+                        </button>
+
+                        <button
+                          // className="px-2 border rounded-md text-blue-500"
+                          onClick={() => {
+                            const newValue = data.height - 1;
+                            handleHeightChange(
+                              { target: { value: newValue } },
+                              data.id
+                            );
+                          }}
+                        >
+                          <span className="text-white text-[10px]">▼</span>
+                        </button>
+                      </div>
+                    </div>
+                   </TableCell>
+                    {/* <span className="text-xs mx-2 justify-center m-auto">
+                      Height{" "}
+                    </span> */}
+
+                    <TableCell className="text-right">
                     <button
-                      className="border-2 border-blue-500 rounded-md h-fit text-center my-auto mr-2 text-blue-500 hover:bg-blue-500 hover:text-white"
+                      
                       onClick={() => {
                         const newData = draggableData.map((item) => {
                           if (item.id === data.id) {
@@ -349,103 +557,34 @@ const UploadPhoto = () => {
                         setDraggableData(newData);
                       }}
                     >
-                      <GrPowerReset fontSize="1rem" className="m-auto" />
+                      <BiReset className="text-white" />
                     </button>
-                    <input
-                      type="text"
-                      value={data.value}
-                      onChange={(event) => handleInputChange(event, data.id)}
-                      className="px-2 py-1 border rounded-md"
-                    />
-                    <span className="text-sm mx-2 min-w-[60px]">
-                      ({data.position.x}, {data.position.y})
-                    </span>
-                    <div className="flex">
-                      <input
-                        type="text"
-                        value={data.width}
-                        onChange={(event) => handleWidthChange(event, data.id)}
-                        className="px-2 border rounded-md"
-                        style={{ width: "50px" }}
-                      />
-                      <div className="flex flex-col mx-2">
-                        <button
-                          className="px-2 border rounded-md text-blue-500"
-                          onClick={() => {
-                            const newValue = data.width - 1;
-                            handleWidthChange(
-                              { target: { value: newValue } },
-                              data.id
-                            );
-                          }}
-                        >
-                          ▲
-                        </button>
+                    </TableCell>
 
-                        <button
-                          className="px-2 border rounded-md text-blue-500"
-                          onClick={() => {
-                            const newValue = data.width - 1;
-                            handleWidthChange(
-                              { target: { value: newValue } },
-                              data.id
-                            );
-                          }}
-                        >
-                          ▼
-                        </button>
-                      </div>
-                    </div>
-                    <span className="text-sm mx-2 justify-center m-auto">
-                      Width{" "}
-                    </span>
-                    <div className="flex">
-                      <input
-                        type="text"
-                        value={data.height}
-                        onChange={(event) => handleHeightChange(event, data.id)}
-                        className="px-2 border rounded-md"
-                        style={{ width: "50px" }}
-                      />
-                      <div className="flex flex-col mx-2">
-                        <button
-                          className="px-2 border rounded-md text-blue-500"
-                          onClick={() => {
-                            const newValue = data.height + 1;
-                            handleHeightChange(
-                              { target: { value: newValue } },
-                              data.id
-                            );
-                          }}
-                        >
-                          ▲
-                        </button>
+                    <TableCell>
+                    <button onClick={() => handleRemoveField(data.id)}>
+              <AiOutlineDelete 
+              className="text-white"
+              />
+             
+            </button>
+                    </TableCell>
+                    
+                  </TableRow>
 
-                        <button
-                          className="px-2 border rounded-md text-blue-500"
-                          onClick={() => {
-                            const newValue = data.height - 1;
-                            handleHeightChange(
-                              { target: { value: newValue } },
-                              data.id
-                            );
-                          }}
-                        >
-                          ▼
-                        </button>
-                      </div>
-                    </div>
-                    <span className="text-sm mx-2 justify-center m-auto">
-                      Height{" "}
-                    </span>
-                  </div>
+                
                 ))}
+                </TableBody>
+                  </Table>
 
                 <button className="px-4 py-2 bg-blue-500 text-white rounded-md">
                   Save
                 </button>
               </div>
             )}
+
+
+
           </div>
         </div>
       </div>
