@@ -369,7 +369,8 @@ const UploadPhoto = () => {
               >
                 <canvas
                   ref={canvasRef}
-                  style={{ width: "100%", height: "100%" }}
+                  // style={{ width: "100%", height: "100%"}}
+                  className="bg-black/50 h-full w-full "
                 />
                 {draggableData.map((data) => (
                   <div
