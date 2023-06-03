@@ -6,7 +6,7 @@ export interface DraggableItem {
     dragStartPosition: { x: number; y: number };
     width: number;
     height: number;
-    textColor?: string;
+    textColor: string;
   }
 
 

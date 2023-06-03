@@ -8,6 +8,8 @@ import {DraggableItem} from '../types'
 import { fileSchema, dimensionSchema } from './../validator/index';
 import { useToast } from './ui/use-toast';
 import ColorPicker from './ColorPicker';
+import { HexColorPicker } from "react-colorful";
+
 
 import { ColorResult, GooglePicker, SketchPicker } from "@hello-pangea/color-picker";
 
@@ -54,7 +56,7 @@ const UploadPhoto = () => {
   // const [date, setDate] = useState("");
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
-
+  // console.log(selectedFile)
   const [draggableData, setDraggableData] = useState<DraggableItem[]>([
     {
       id: "title",
@@ -64,7 +66,7 @@ const UploadPhoto = () => {
       dragStartPosition: { x: 0, y: 0 },
       width: 100,
       height: 20,
-      textColor: "FFFFFF",
+      textColor: "#FFFFFF",
     },
     {
       id: "date",
@@ -74,7 +76,7 @@ const UploadPhoto = () => {
       dragStartPosition: { x: 0, y: 0 },
       width: 100,
       height: 20,
-      textColor: "FFFFFF",
+      textColor: "#FFFFFF",
     },
     {
       id: "link",
@@ -84,7 +86,7 @@ const UploadPhoto = () => {
       dragStartPosition: { x: 0, y: 0 },
       width: 100,
       height: 20,
-      textColor: "FFFFFF",
+      textColor: "#FFFFFF",
     },
   ]);
 
@@ -262,7 +264,7 @@ const UploadPhoto = () => {
       dragStartPosition: { x: 0, y: 0 },
       width: 100,
       height: 20,
-      textColor: "FFFFFF",
+      textColor: "#FFFFFF",
     };
     setDraggableData((prevData) => [...prevData, newField]);
   };
@@ -330,18 +332,9 @@ const UploadPhoto = () => {
     }
     
   };
-
-  function handleChange(colorResult: ColorResult, id) {
-    // setHexValue(colorResult.hex);
-
-    const updatedData = draggableData.map((data) => {
-      if(data.id === id){
-        return {...data, textColor: colorResult.hex}
-      }
-    })
-
-    setDraggableData(updatedData);
-  }
+  
+  
+ 
 
   return (
     <div className="relative bg-blank h-screen scrollbar-macos-style">
@@ -398,7 +391,7 @@ const UploadPhoto = () => {
                       className="select-none"
                       style={{
                         margin: 0,
-                        color: `#${data.textColor}}`,
+                        color: `${data.textColor}`,
                         background: "rgba(0, 0, 0, 0.5)",
                         width: `${data.width}px`,
                         height: `${data.height}px`,
@@ -493,6 +486,7 @@ const UploadPhoto = () => {
                                 { target: { value: newValue } },
                                 data.id
                               );
+
                             }
                             else {
                               toast({
@@ -502,6 +496,7 @@ const UploadPhoto = () => {
                             }
                           }}
                         >
+
                           <span className="text-white text-[8px]">▼</span>
                         </button>
                       </div>
@@ -603,13 +598,14 @@ const UploadPhoto = () => {
                       <DialogHeader>
                         <DialogTitle>Color Picker</DialogTitle>
                         </DialogHeader>
-                        <SketchPicker  />
-                        {/* color={data.textColor} onChange={handleChange} */}
+                        <SketchPicker />
+                        {/*  color={data.textColor} onChange={handleChange} */}
                       </DialogContent>
                       </Dialog>
                     </TableCell>
                     
                   </TableRow>
+                  
 
                 
                 ))}
