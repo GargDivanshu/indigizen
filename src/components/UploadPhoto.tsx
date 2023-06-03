@@ -2,15 +2,29 @@ import * as React from 'react';
 import { useState, useRef, useEffect } from "react";
 import { BsUpload } from "react-icons/bs";
 import { RiImageAddFill } from "react-icons/ri";
-import { BiReset } from "react-icons/bi";
+import { BiReset, BiColorFill } from "react-icons/bi";
 import {AiOutlineDelete} from 'react-icons/ai'
 import {DraggableItem} from '../types'
 import { fileSchema, dimensionSchema } from './../validator/index';
+import { useToast } from './ui/use-toast';
+import ColorPicker from './ColorPicker';
 
-import { ToastAction } from "./ui/toast"
-import { useToast } from "./ui/use-toast"
+import { ColorResult, GooglePicker, SketchPicker } from "@hello-pangea/color-picker";
+
 
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog"
+
+
+import {
+
+
   Table,
   TableBody,
   // TableCaption,
@@ -24,7 +38,7 @@ import {
 
 
 const UploadPhoto = () => {
-  const { toast } = useToast()
+  
 
 
   const [selectedFile, setSelectedFile] = useState(null);
@@ -50,6 +64,7 @@ const UploadPhoto = () => {
       dragStartPosition: { x: 0, y: 0 },
       width: 100,
       height: 20,
+      textColor: "FFFFFF",
     },
     {
       id: "date",
@@ -59,6 +74,7 @@ const UploadPhoto = () => {
       dragStartPosition: { x: 0, y: 0 },
       width: 100,
       height: 20,
+      textColor: "FFFFFF",
     },
     {
       id: "link",
@@ -68,13 +84,15 @@ const UploadPhoto = () => {
       dragStartPosition: { x: 0, y: 0 },
       width: 100,
       height: 20,
+      textColor: "FFFFFF",
     },
   ]);
 
-  const [error, setError] = useState("");
-
+  const { toast } = useToast()
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
+
+
 
   useEffect(() => {
     if (previewImage) {
@@ -109,30 +127,7 @@ const UploadPhoto = () => {
     }
   }, [previewImage]);
 
-  // useEffect(() => {
-  //    if(error.length > 0){
-  //       generateError(error)
-  //    }
-  // }, [error])
-
-  // const setErrorWithTimeout = (title) => {
-  //   setError(title); // Set the error value to "XYZ"
   
-  //   setTimeout(() => {
-  //     setError(""); // Clear the error value after 2 seconds
-  //   }, 2000);
-  // };
-
-
-  // const generateError = (title) => {
-  //   toast({
-  //     title:  `${title}`,
-  //     // description: `${desc}`,
-  //     // action: (
-  //     //   <ToastAction altText="Goto schedule to undo">Undo</ToastAction>
-  //     // ),
-  //   })
-  // }
 
   const getCurrentDate = () => {
     const currentDate = new Date();
@@ -142,17 +137,17 @@ const UploadPhoto = () => {
     return `${day}/${month}/${year}`;
   };
 
-  const calculateImageOffset = () => {
-    const containerElement = containerRef.current;
-    const containerRect = containerElement.getBoundingClientRect();
-    const imageRect = canvasRef.current.getBoundingClientRect();
+  // const calculateImageOffset = () => {
+  //   const containerElement = containerRef.current;
+  //   const containerRect = containerElement.getBoundingClientRect();
+  //   const imageRect = canvasRef.current.getBoundingClientRect();
 
-    const offsetX = imageRect.left - containerRect.left;
+  //   const offsetX = imageRect.left - containerRect.left;
     
-    const offsetY = imageRect.top - containerRect.top;
-    setOffset({ x: offsetX, y: offsetY });
-    console.log("Image Offset:", offsetX, offsetY);
-  };
+  //   const offsetY = imageRect.top - containerRect.top;
+  //   setOffset({ x: offsetX, y: offsetY });
+  //   console.log("Image Offset:", offsetX, offsetY);
+  // };
 
   const handleFileInputChange = (event) => {
     const file = event.target.files[0];
@@ -179,20 +174,12 @@ const UploadPhoto = () => {
         });
         setDraggableData(updatedData);
       } else {
-        // Handle the validation error
-        // generateError("File type not supported", "Please upload a valid image file")
-        // toast({
-        //   title:  `File type not supported`,
-        //   description: `Please upload a valid image file`,
-        //   // action: (
-        //   //   <ToastAction altText="Goto schedule to undo">Undo</ToastAction>
-        //   // ),
-        // })
-        // setErrorWithTimeout("File type not supported")
         
+        toast({
+          title: "Invalid Input File",
+          description: "Only JPEG/JPG and PNG files are supported",
+        })
         console.error("File type not supported");
-        
-        
       }
     }
   };
@@ -275,6 +262,7 @@ const UploadPhoto = () => {
       dragStartPosition: { x: 0, y: 0 },
       width: 100,
       height: 20,
+      textColor: "FFFFFF",
     };
     setDraggableData((prevData) => [...prevData, newField]);
   };
@@ -303,17 +291,15 @@ const UploadPhoto = () => {
         setDraggableData(updatedData);
       } else {
         // Handle the validation error
-        toast({
-          title: "Scheduled: Catch up ",
-          description: "Friday, February 10, 2023 at 5:57 PM",
-          // action: (
-          //   <ToastAction altText="Goto schedule to undo">Undo</ToastAction>
-          // ),
-        })
+        console.error("Width must be an integer");
       }
     } else {
       // Handle invalid input
       console.error("Invalid width input");
+      toast({
+        title: "Invalid Width Input",
+        description: "Width must be a positive Integer",
+      })
     }
   };
 
@@ -336,13 +322,29 @@ const UploadPhoto = () => {
         console.error("Width must be an integer");
       }
     } else {
-      console.error("Invalid width input");
+      console.error("Invalid height input");
+      toast({
+        title: "Invalid Height Input",
+        description: "Height must be a positive Integer",
+      })
     }
     
   };
 
+  function handleChange(colorResult: ColorResult, id) {
+    // setHexValue(colorResult.hex);
+
+    const updatedData = draggableData.map((data) => {
+      if(data.id === id){
+        return {...data, textColor: colorResult.hex}
+      }
+    })
+
+    setDraggableData(updatedData);
+  }
+
   return (
-    <div className="relative bg-blank h-screen">
+    <div className="relative bg-blank h-screen scrollbar-macos-style">
       <div className="w-full bg-panels py-[2px] border-b-[1px] border-border">
         <input
           type="file"
@@ -396,7 +398,7 @@ const UploadPhoto = () => {
                       className="select-none"
                       style={{
                         margin: 0,
-                        color: "white",
+                        color: `#${data.textColor}}`,
                         background: "rgba(0, 0, 0, 0.5)",
                         width: `${data.width}px`,
                         height: `${data.height}px`,
@@ -411,8 +413,9 @@ const UploadPhoto = () => {
             )}
           </div>
 
-          <div className="absolute px-4 right-0 pt-2 border-l-[1px] border-border h-full bg-panels">
+          
             {previewImage && (
+              <div className="absolute overflow-y-auto px-4 right-0 pt-2 border-l-[1px] border-border h-full bg-panels">
               <div className="mx-auto">
                 <div className="flex items-center">
                   <RiImageAddFill className="mr-2" />
@@ -427,12 +430,13 @@ const UploadPhoto = () => {
                 <Table>
                     {/* <TableCaption>A list of your recent invoices.</TableCaption> */}
                     <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[150px]">Title</TableHead>
-                  <TableHead className="w-[127px]">Width</TableHead>
-                  <TableHead className="w-[127px]"> Height</TableHead>
+                <TableRow  className="text-xs">
+                  <TableHead className="w-[50px]">Title</TableHead>
+                  <TableHead className="w-[90px]">Width</TableHead>
+                  <TableHead className="w-[90px]"> Height</TableHead>
                   <TableHead className="w-[15px] text-right">Reset</TableHead>
                   <TableHead className="w-[15px] text-right">Delete</TableHead>
+                  <TableHead className="w-[15px] text-right">Color</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -445,7 +449,7 @@ const UploadPhoto = () => {
                   <TableRow className=" text-black" key={data.id}>
                     
 
-                   <TableCell className="w-[210px]">
+                   <TableCell className="w-[195px]">
                     <input
                       type="text"
                       value={data.value}
@@ -477,20 +481,28 @@ const UploadPhoto = () => {
                             );
                           }}
                         >
-                          <span className="text-white text-[10px]">▲</span>
+                          <span className="text-white text-[8px]">▲</span>
                         </button>
 
                         <button
                           // className="px-2 border rounded-md text-blue-500"
                           onClick={() => {
                             const newValue = data.width - 1;
-                            handleWidthChange(
-                              { target: { value: newValue } },
-                              data.id
-                            );
+                            if (newValue >= 1) {
+                              handleWidthChange(
+                                { target: { value: newValue } },
+                                data.id
+                              );
+                            }
+                            else {
+                              toast({
+                                title: "Invalid Width",
+                                description: "Width cannot be less than 1",
+                              });
+                            }
                           }}
                         >
-                          <span className="text-white text-[10px]">▼</span>
+                          <span className="text-white text-[8px]">▼</span>
                         </button>
                       </div>
                     </div>
@@ -519,20 +531,29 @@ const UploadPhoto = () => {
                             );
                           }}
                         >
-                          <span className="text-white text-[10px]">▲</span>
+                          <span className="text-white text-[8px]">▲</span>
                         </button>
 
                         <button
                           // className="px-2 border rounded-md text-blue-500"
                           onClick={() => {
                             const newValue = data.height - 1;
-                            handleHeightChange(
-                              { target: { value: newValue } },
-                              data.id
-                            );
+
+                            if (newValue >= 1) {
+                              handleHeightChange(
+                                { target: { value: newValue } },
+                                data.id
+                              );
+                            } 
+                            else {
+                              toast({
+                                title: "Invalid Height",
+                                description: "Height cannot be less than 1",
+                              });
+                            }
                           }}
                         >
-                          <span className="text-white text-[10px]">▼</span>
+                          <span className="text-white text-[8px]">▼</span>
                         </button>
                       </div>
                     </div>
@@ -543,7 +564,7 @@ const UploadPhoto = () => {
 
                     <TableCell className="text-right">
                     <button
-                      
+                      className="m-auto"
                       onClick={() => {
                         const newData = draggableData.map((item) => {
                           if (item.id === data.id) {
@@ -570,6 +591,23 @@ const UploadPhoto = () => {
              
             </button>
                     </TableCell>
+
+                    <TableCell>
+                      <Dialog>
+                      <DialogTrigger>
+                        <BiColorFill
+                      className="text-white mx-auto"
+                      />
+                      </DialogTrigger>
+                      <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Color Picker</DialogTitle>
+                        </DialogHeader>
+                        <SketchPicker  />
+                        {/* color={data.textColor} onChange={handleChange} */}
+                      </DialogContent>
+                      </Dialog>
+                    </TableCell>
                     
                   </TableRow>
 
@@ -578,21 +616,22 @@ const UploadPhoto = () => {
                 </TableBody>
                   </Table>
 
-                <button className="px-4 py-2 bg-blue-500 text-white rounded-md">
+                <button className="px-4 py-2 mx-2 bg-blue-500 text-white rounded-md">
                   Save
                 </button>
+              </div>
               </div>
             )}
 
 
 
-          </div>
+         
         </div>
       </div>
 
-      <div className="w-full">
+      <div className="w-full bottom-0 fixed">
         {previewImage && (
-          <div className="bg-panels py-[2px] text-xs flex border-t-[1px] border-border">
+          <div className="bg-panels py-[2px] text-xs flex border-t-[1px] border-border ">
             <div className=" text-white text-left border-l-[1px] px-1 border-border">
               Original Image Dimensions: {originalImageDimensions.width}px x{" "}
               {originalImageDimensions.height}px

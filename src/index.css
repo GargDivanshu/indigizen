@@ -17,3 +17,28 @@ code {
 }
 
 
+/* Hide the default scrollbar */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Style the custom scrollbar */
+/* This example uses a blue background and a round thumb */
+/* Adjust the styles to match the macOS scrollbar appearance */
+::-webkit-scrollbar-track {
+  background-color: #e5e5e5;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #1877f2;
+  border-radius: 8px;
+}
+
+/* Optional: Add hover and active styles for the thumb */
+::-webkit-scrollbar-thumb:hover {
+  background-color: #1256a3;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: #0e4180;
+}
