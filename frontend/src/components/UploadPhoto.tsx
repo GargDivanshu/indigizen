@@ -4,7 +4,14 @@ import { BsUpload } from "react-icons/bs";
 import { RiImageAddFill } from "react-icons/ri";
 import { BiReset, BiColorFill } from "react-icons/bi";
 import { AiOutlineDelete } from "react-icons/ai";
-import {IoPhonePortraitOutline, IoPhoneLandscapeOutline, IoSquareOutline} from "react-icons/io5";
+import axios from "axios";
+
+
+import {
+  IoPhonePortraitOutline,
+  IoPhoneLandscapeOutline,
+  IoSquareOutline,
+} from "react-icons/io5";
 
 import { DraggableItem } from "../types";
 import { fileSchema, dimensionSchema } from "./../validator/index";
@@ -31,7 +38,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "./ui/tooltip"
+} from "./ui/tooltip";
 
 import {
   Table,
@@ -46,7 +53,8 @@ import {
 const UploadPhoto = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
-  console.log(typeof previewImage + " this is preview ")
+  const [finalImage, setFinalImage] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [originalImageDimensions, setOriginalImageDimensions] = useState({
     width: 0,
     height: 0,
@@ -58,7 +66,8 @@ const UploadPhoto = () => {
   // const [date, setDate] = useState("");
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [canvas_dimensions, setCanvasDimensions] = useState({
-    x: 500, y:500
+    x: 500,
+    y: 500,
   });
 
   const [draggableData, setDraggableData] = useState<DraggableItem[]>([
@@ -105,7 +114,7 @@ const UploadPhoto = () => {
       image.onload = () => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext("2d");
-  
+
         const aspectRatio = image.width / image.height;
         let width, height;
         if (aspectRatio > 1) {
@@ -115,18 +124,18 @@ const UploadPhoto = () => {
           height = canvas_dimensions.y;
           width = height * aspectRatio;
         }
-  
+
         canvas.width = canvas_dimensions.x;
         canvas.height = canvas_dimensions.y;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
+
         const offsetX = (canvas_dimensions.x - width) / 2; // Calculate the horizontal offset
         const offsetY = (canvas_dimensions.y - height) / 2; // Calculate the vertical offset
-  
+
         ctx.drawImage(image, offsetX, offsetY, width, height);
-  
+
         setOffset({ x: offsetX, y: offsetY });
-  
+
         // Set the original image dimensions
         setOriginalImageDimensions({
           width: image.width,
@@ -136,7 +145,6 @@ const UploadPhoto = () => {
       };
     }
   }, [previewImage, canvas_dimensions]);
-  
 
   const getCurrentDate = () => {
     const currentDate = new Date();
@@ -163,6 +171,7 @@ const UploadPhoto = () => {
 
     if (file) {
       // Validate the selected file using the schema
+      const fileName = file.name;
       const validationResult = fileSchema.safeParse(file);
 
       if (validationResult.success) {
@@ -310,7 +319,7 @@ const UploadPhoto = () => {
       });
     }
   };
-  console.log(canvas_dimensions)
+  console.log(canvas_dimensions);
   const handleHeightChange = (event, id) => {
     const heightInput = event.target.value;
     const height = parseInt(heightInput, 10);
@@ -354,6 +363,78 @@ const UploadPhoto = () => {
   //   setDraggableData(updatedData);
   // }
 
+  const handleSave = async () => {
+    try {
+      const dataURL = await captureCanvasImage();
+  
+      const data = {
+        name: selectedFile?.name,
+        photo: dataURL,
+      };
+  
+      console.log(data);
+  
+      const response = await axios.post("http://localhost:8080/api/v1/post", data);
+      console.log(response.data.data[1]);
+  
+      console.log("saved");
+      toast({
+        title: "Saved",
+        description: "Your image has been saved",
+      })
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const captureCanvasImage = () => {
+    return new Promise<string>((resolve, reject) => {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      const image = new Image();
+      image.src = previewImage;
+  
+      image.onload = () => {
+        const aspectRatio = image.width / image.height;
+        let width, height;
+        if (aspectRatio > 1) {
+          width = canvas.width;
+          height = width / aspectRatio;
+        } else {
+          height = canvas.height;
+          width = height * aspectRatio;
+        }
+  
+        canvas.width = canvas.width; // Clear the canvas
+        ctx.drawImage(image, 0, 0, width, height);
+  
+        draggableData.forEach((data) => {
+          const inputWidth = data.width;
+          const inputHeight = data.height;
+          ctx.fillStyle = `rgba(0, 0, 0, 0.5)`;
+          ctx.fillRect(data.position.x, data.position.y, inputWidth, inputHeight);
+          ctx.font = "12px Arial";
+          ctx.fillStyle = `#${data.textColor}`;
+          ctx.fillText(data.value, data.position.x, data.position.y + inputHeight / 2 + 6);
+        });
+  
+        const dataURL = canvas.toDataURL();
+  
+        if (dataURL) {
+          setFinalImage(dataURL);
+          resolve(dataURL);
+        } else {
+          reject(new Error("Failed to capture canvas image"));
+        }
+      };
+  
+      image.onerror = () => {
+        reject(new Error("Failed to load image"));
+      };
+    });
+  };
+  
+
   return (
     <div className="relative bg-blank h-screen scrollbar-macos-style">
       <div className="w-full bg-panels py-[2px] border-b-[1px] border-border">
@@ -377,7 +458,7 @@ const UploadPhoto = () => {
           <div>
             {previewImage ? (
               <div
-                className="mx-auto overflow-hidden relative w-[300px] h-[300px]"
+                className={`mx-auto overflow-hidden relative w-[${300}px] h-[${300}px]`}
                 ref={containerRef}
               >
                 <canvas
@@ -421,9 +502,7 @@ const UploadPhoto = () => {
                   </div>
                 ))}
               </div>
-            )
-            : 
-            (
+            ) : (
               <div
                 className="mx-auto overflow-hidden relative w-[300px] h-[300px]"
                 ref={containerRef}
@@ -434,8 +513,26 @@ const UploadPhoto = () => {
                   className="bg-black/50 h-full w-full "
                 />
               </div>
-            )
-            }
+            )}
+
+            {/* upload btn on top of canvas */}
+            {/* <div className="mx-auto overflow-hidden relative w-[300px] h-[300px]">
+  <label
+    htmlFor="uploadInput"
+    className="flex mx-auto w-fit my-8 py-1 items-center px-4 hover:bg-blue-800 text-white rounded-md cursor-pointer absolute top-0 left-0 right-0 bg-opacity-50"
+    style={{ zIndex: 2 }}
+  >
+    <BsUpload className="mr-2" />
+    Upload File
+  </label>
+
+  <canvas
+    ref={canvasRef}
+    className="bg-black/50 h-full w-full"
+    style={{ zIndex: 1 }}
+  />
+</div> */}
+            {/* upload btn on top of canvas */}
           </div>
 
           {previewImage ? (
@@ -468,86 +565,71 @@ const UploadPhoto = () => {
                       Add Field
                     </button>
 
-              <TooltipProvider>
-                <Tooltip>
-                <TooltipTrigger asChild>
-                    <button
-              className="mr-0 rounded-md text-center border-1 text-white p-2 mx-2"
-              >
-                <IoPhonePortraitOutline
-                onClick={() => {
-                  setCanvasDimensions({
-                    x: 400, 
-                    y: 600
-                  })
-                  
-                }}
-                
-                fontSize={15}
-                className="text-center mx-auto hover:text-blue-600"
-                />
-                
-              </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Portrait Canvas</p>
-                </TooltipContent>
-              </Tooltip>
-              </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
+                            <IoPhonePortraitOutline
+                              onClick={() => {
+                                setCanvasDimensions({
+                                  x: 400,
+                                  y: 600,
+                                });
+                              }}
+                              fontSize={15}
+                              className=" text-center mx-auto hover:text-blue-600"
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Portrait Canvas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
 
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
+                            <IoPhoneLandscapeOutline
+                              onClick={() => {
+                                setCanvasDimensions({
+                                  x: 400,
+                                  y: 400,
+                                });
+                              }}
+                              fontSize={15}
+                              className="text-center mx-auto hover:text-blue-600"
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Landscape Canvas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
 
-              <TooltipProvider>
-                <Tooltip>
-                <TooltipTrigger asChild>
-                    <button
-              className="mr-0 rounded-md text-center border-1 text-white p-2 mx-2"
-              >
-                <IoPhoneLandscapeOutline
-                onClick={() => {
-                  setCanvasDimensions({
-                    x: 600, 
-                    y: 400
-                  })
-                  
-                }}
-                fontSize={15}
-                className="text-center mx-auto hover:text-blue-600"
-                />
-              </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Landscape Canvas</p>
-                </TooltipContent>
-              </Tooltip>
-              </TooltipProvider>
-
-
-              <TooltipProvider>
-                <Tooltip>
-                <TooltipTrigger asChild>
-                    <button
-              className="mr-0 rounded-md text-center border-1 text-white p-2 mx-2"
-              >
-                < IoSquareOutline
-                onClick={() => {
-                  setCanvasDimensions({
-                    x: 500, 
-                    y: 500
-                  })
-                  
-                }}
-                fontSize={15}
-                className="text-center mx-auto hover:text-blue-600"
-                />
-              </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Square Canvas</p>
-                </TooltipContent>
-              </Tooltip>
-              </TooltipProvider>
-             
-
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
+                            <IoSquareOutline
+                              onClick={() => {
+                                setCanvasDimensions({
+                                  x: 500,
+                                  y: 500,
+                                });
+                              }}
+                              fontSize={15}
+                              className="text-center mx-auto hover:text-blue-600"
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Square Canvas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
 
                   <Table>
@@ -761,142 +843,144 @@ const UploadPhoto = () => {
                     </TableBody>
                   </Table>
 
-                  <button className="px-4 py-2 mx-2 bg-blue-500 text-white rounded-md">
+                  <button 
+                  onClick={() => {
+                    handleSave();
+                  }}
+                  className="px-4 py-2 mx-2 bg-blue-500 text-white rounded-md">
                     Save
                   </button>
                 </div>
               </div>
             </>
-          )
-          :
-          (
+          ) : (
             <>
-            <div className="absolute overflow-y-auto px-4 right-0 pt-2 border-l-[1px] border-border h-full bg-panels">
-            <div className="mx-auto">
-              <div className="flex items-center">
-                <RiImageAddFill className="mr-2" />
-                <button
-                  className="
+              <div className="absolute overflow-y-auto px-4 right-0 pt-2 border-l-[1px] border-border h-full bg-panels">
+                <div className="mx-auto">
+                  <div className="flex items-center">
+                    <RiImageAddFill className="mr-2" />
+                    <button
+                    onClick={() => {
+                      toast({
+                        title: "No Image Selected",
+                        description: "Please upload an image to continue",
+                      })
+                    }}
+                      className="
                   cursor-not-allowed
                   px-4 py-2 bg-blue-500 text-white rounded-md"
-                >
-                  Add Field
-                </button>
+                    >
+                      Add Field
+                    </button>
 
-          <TooltipProvider>
-            <Tooltip>
-            <TooltipTrigger asChild>
-                <button
-          className="mr-0 rounded-md text-center border-1 text-white p-2 mx-2"
-          >
-            <IoPhonePortraitOutline
-            onClick={() => {
-              setCanvasDimensions({
-                x: 400, 
-                y: 600
-              })
-              
-            }}
-            
-            fontSize={15}
-            className="text-center mx-auto hover:text-blue-600"
-            />
-            
-          </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Portrait Canvas</p>
-            </TooltipContent>
-          </Tooltip>
-          </TooltipProvider>
+                    {/* portrait mode btn */}
 
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
+                            <IoPhonePortraitOutline
+                              onClick={() => {
+                                setCanvasDimensions({
+                                  x: 400,
+                                  y: 600,
+                                });
+                              }}
+                              fontSize={15}
+                              className="cursor-help text-center mx-auto hover:text-blue-600"
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Portrait Canvas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
 
-          <TooltipProvider>
-            <Tooltip>
-            <TooltipTrigger asChild>
-                <button
-          className="mr-0 rounded-md text-center border-1 text-white p-2 mx-2"
-          >
-            <IoPhoneLandscapeOutline
-            onClick={() => {
-              setCanvasDimensions({
-                x: 600, 
-                y: 400
-              })
-              
-            }}
-            fontSize={15}
-            className="text-center mx-auto hover:text-blue-600"
-            />
-          </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Landscape Canvas</p>
-            </TooltipContent>
-          </Tooltip>
-          </TooltipProvider>
+                    {/* landscape mode btn */}
 
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
+                            <IoPhoneLandscapeOutline
+                              onClick={() => {
+                                setCanvasDimensions({
+                                  x: 600,
+                                  y: 400,
+                                });
+                              }}
+                              fontSize={15}
+                              className="text-center mx-auto hover:text-blue-600"
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Landscape Canvas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
 
-          <TooltipProvider>
-            <Tooltip>
-            <TooltipTrigger asChild>
-                <button
-          className="mr-0 rounded-md text-center border-1 text-white p-2 mx-2"
-          >
-            < IoSquareOutline
-            onClick={() => {
-              setCanvasDimensions({
-                x: 500, 
-                y: 500
-              })
-              
-            }}
-            fontSize={15}
-            className="text-center mx-auto hover:text-blue-600"
-            />
-          </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Square Canvas</p>
-            </TooltipContent>
-          </Tooltip>
-          </TooltipProvider>
-         
+                    {/* square mode btn */}
 
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
+                            <IoSquareOutline
+                              onClick={() => {
+                                setCanvasDimensions({
+                                  x: 500,
+                                  y: 500,
+                                });
+                              }}
+                              fontSize={15}
+                              className="text-center mx-auto hover:text-blue-600"
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Square Canvas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+
+                  <Table>
+                    {/* <TableCaption>A list of your recent invoices.</TableCaption> */}
+                    <TableHeader>
+                      <TableRow className="text-xs">
+                        <TableHead className="w-[50px]">Title</TableHead>
+                        <TableHead className="w-[90px]">Width</TableHead>
+                        <TableHead className="w-[90px]"> Height</TableHead>
+                        <TableHead className="w-[15px] text-right">
+                          Reset
+                        </TableHead>
+                        <TableHead className="w-[15px] text-right">
+                          Delete
+                        </TableHead>
+                        <TableHead className="w-[15px] text-right">
+                          Color
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody></TableBody>
+                  </Table>
+
+                  <button 
+                  onClick={() => {
+                    toast({
+                      title: "No Image Selected",
+                      description: "Please upload an image to continue",
+                    })
+                  }}
+                  className="cursor-not-allowed px-4 py-2 m-2 bg-blue-500 text-white rounded-md">
+                    Save
+                  </button>
+                </div>
               </div>
-
-              <Table>
-                {/* <TableCaption>A list of your recent invoices.</TableCaption> */}
-                <TableHeader>
-                  <TableRow className="text-xs">
-                    <TableHead className="w-[50px]">Title</TableHead>
-                    <TableHead className="w-[90px]">Width</TableHead>
-                    <TableHead className="w-[90px]"> Height</TableHead>
-                    <TableHead className="w-[15px] text-right">
-                      Reset
-                    </TableHead>
-                    <TableHead className="w-[15px] text-right">
-                      Delete
-                    </TableHead>
-                    <TableHead className="w-[15px] text-right">
-                      Color
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  
-                </TableBody>
-              </Table>
-
-              <button className="cursor-not-allowed px-4 py-2 m-2 bg-blue-500 text-white rounded-md">
-                Save
-              </button>
-            </div>
-          </div>
-        </>
-          )
-          
-          }
+            </>
+          )}
         </div>
       </div>
 
