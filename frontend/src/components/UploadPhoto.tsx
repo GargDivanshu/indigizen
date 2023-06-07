@@ -5,6 +5,8 @@ import { RiImageAddFill } from "react-icons/ri";
 import { BiReset, BiColorFill } from "react-icons/bi";
 import { AiOutlineDelete } from "react-icons/ai";
 import { FaSignature } from "react-icons/fa";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 import axios from "axios";
 import {
@@ -31,6 +33,8 @@ import {
   GooglePicker,
   SketchPicker,
 } from "@hello-pangea/color-picker";
+
+import { Toggle } from "./ui/toggle"
 
 import {
   Dialog,
@@ -89,6 +93,7 @@ const UploadPhoto = () => {
       height: 20,
       textColor: "FFFFFF",
       textSize: 18,
+      isCentered: false,
     },
     {
       id: "date",
@@ -100,6 +105,7 @@ const UploadPhoto = () => {
       height: 20,
       textColor: "FFFFFF",
       textSize: 18,
+      isCentered: false,
     },
     {
       id: "link",
@@ -111,6 +117,7 @@ const UploadPhoto = () => {
       height: 20,
       textColor: "FFFFFF",
       textSize: 18,
+      isCentered: false,
     },
   ]);
 
@@ -127,6 +134,8 @@ const UploadPhoto = () => {
       image.onload = () => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        
 
         const aspectRatio = image.width / image.height;
         let width, height;
@@ -137,6 +146,8 @@ const UploadPhoto = () => {
           height = canvas_dimensions.y;
           width = height * aspectRatio;
         }
+
+        
 
         canvas.width = canvas_dimensions.x;
         canvas.height = canvas_dimensions.y;
@@ -158,6 +169,114 @@ const UploadPhoto = () => {
       };
     }
   }, [previewImage, canvas_dimensions]);
+
+
+  const canvasToPDF = async (canvasRef, filename) => {
+    const canvas = canvasRef.current;
+    const canvasImage = await html2canvas(canvas);
+
+
+    const imageBase64 = canvasImage.toDataURL("image/png");
+
+    try {
+      const response = await axios.post("http://localhost:8080/api/v1/toPDF", { html: imageBase64 }, { responseType: "blob" });
+
+ 
+      const downloadLink = document.createElement("a");
+      downloadLink.href = URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      downloadLink.setAttribute("download", "canvas.pdf");
+      downloadLink.click();
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    }
+// attempt 2 
+
+
+    // const canvas = canvasRef.current;
+
+    // html2canvas(canvas).then((capturedCanvas) => {
+    //   const imageData = capturedCanvas.toDataURL("image/png");
+  
+    //   const pdf = new jsPDF();
+    //   const pdfWidth = capturedCanvas.width * 0.75;
+    //   const pdfHeight = capturedCanvas.height * 0.75;
+    //   pdf.addImage(imageData, "PNG", 15, 15, pdfWidth, pdfHeight);
+    //   pdf.save(filename);
+    // });
+
+    //  attempt 3
+  //   const canvas = canvasRef.current;
+
+  // const ctx = canvas.getContext("2d");
+  // ctx.imageSmoothingEnabled = true;
+
+  // // Clear the canvas
+  // ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // // Draw the uploaded image
+  // const image = new Image();
+  // image.src = previewImage;
+
+  // image.onload = () => {
+  //   const aspectRatio = image.width / image.height;
+  //   let width, height;
+  //   if (aspectRatio > 1) {
+  //     width = canvas.width;
+  //     height = width / aspectRatio;
+  //   } else {
+  //     height = canvas.height;
+  //     width = height * aspectRatio;
+  //   }
+
+  //   ctx.drawImage(image, 0, 0, width, height);
+
+  //   // Draw additional elements
+  //   draggableData.forEach((data) => {
+  //     const inputWidth = data.width;
+  //     const inputHeight = data.height;
+  //     ctx.fillStyle = `rgba(0, 0, 0, 0.5)`;
+  //     ctx.fillRect(
+  //       data.position.x,
+  //       data.position.y,
+  //       inputWidth,
+  //       inputHeight
+  //     );
+  //     ctx.font = "12px Arial";
+  //     ctx.fillStyle = `#${data.textColor}`;
+  //     ctx.fillText(
+  //       data.value,
+  //       data.position.x,
+  //       data.position.y + inputHeight / 2 + 6
+  //     );
+  //   });
+
+  //   // Convert the canvas to an image using html2canvas
+  //   html2canvas(canvas).then((capturedCanvas) => {
+  //     const a4Width = 595.28; // A4 width in points
+  //     const a4Height = 841.89; // A4 height in points
+
+  //     const canvasWidth = capturedCanvas.width;
+  //     const canvasHeight = capturedCanvas.height;
+
+  //     // Calculate the scaling factor
+  //     const scaleFactor = Math.min(
+  //       a4Width / canvasWidth,
+  //       a4Height / canvasHeight
+  //     );
+
+  //     const pdfWidth = canvasWidth * scaleFactor;
+  //     const pdfHeight = canvasHeight * scaleFactor;
+
+  //     const pdf = new jsPDF("p", "pt", [pdfWidth, pdfHeight]);
+  //     pdf.addImage(capturedCanvas, "PNG", 0, 0, pdfWidth, pdfHeight);
+  //     pdf.save(filename);
+  //   });
+  // };
+
+  // image.onerror = () => {
+  //   console.error("Failed to load image");
+  // };
+  }
 
   const getCurrentDate = () => {
     const currentDate = new Date();
@@ -294,6 +413,7 @@ const UploadPhoto = () => {
       height: 20,
       textColor: "FFFFFF",
       textSize: 18,
+      isCentered: false,
     };
     setDraggableData((prevData) => [...prevData, newField]);
   };
@@ -394,11 +514,14 @@ const UploadPhoto = () => {
           const image = new Image();
           image.src = reader.result as string;
           image.onload = () => {
-            const updatedData = draggableData.map((data) => {
+            const updatedData = imageData.map((data) => {
               return {
                 ...data,
                 isDragging: false,
                 dragStartPosition: { x: 0, y: 0 },
+                width: image.width,
+                height: image.height,
+                image: image,
               };
             });
 
@@ -416,7 +539,7 @@ const UploadPhoto = () => {
             };
 
             updatedData.push(newImageData);
-            setDraggableData(updatedData);
+            setImageData(updatedData);
           };
         };
         reader.readAsDataURL(file);
@@ -461,6 +584,7 @@ const UploadPhoto = () => {
     return new Promise<string>((resolve, reject) => {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
       const image = new Image();
       image.src = previewImage;
 
@@ -481,15 +605,15 @@ const UploadPhoto = () => {
         draggableData.forEach((data) => {
           const inputWidth = data.width;
           const inputHeight = data.height;
-          ctx.fillStyle = `rgba(0, 0, 0, 0.5)`;
+          ctx.fillStyle = `rgba(0, 0, 0, 0.0)`;
           ctx.fillRect(
             data.position.x,
             data.position.y,
             inputWidth,
             inputHeight
           );
-          ctx.font = "12px Arial";
-          ctx.fillStyle = `#${data.textColor}`;
+          ctx.font = `${data.textSize}px Arial`;
+          ctx.fillStyle = "#000";
           ctx.fillText(
             data.value,
             data.position.x,
@@ -544,7 +668,7 @@ const UploadPhoto = () => {
                   // style={{ width: "100%", height: "100%"}}
                   className={`bg-black/50  w-[${canvas_dimensions.x}px] h-[${canvas_dimensions.y}px]`}
                 />
-                {[...draggableData, ...imageData].map((data) => (
+                {draggableData.map((data) => (
                   <div
                     key={data.id}
                     style={{
@@ -570,6 +694,7 @@ const UploadPhoto = () => {
                         margin: 0,
                         cursor: "move",
                         color: `#${data.textColor}`,
+                        textAlign: data.isCentered ? 'center' : undefined,
                         background: "rgba(0, 0, 0, 0.5)",
                         width: `${data.width}px`,
                         height: `${data.height}px`,
@@ -579,18 +704,21 @@ const UploadPhoto = () => {
                       }}
                       readOnly
                     />
-                    {/* {imageData.value ? (
-                      <img
-                        src={imageData.values}
-                        alt="Signature"
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "contain",
-                          pointerEvents: "none",
-                        }}
-                      />
-                    ) : null} */}
+                    {/* {imageData ? imageData.map(()=> {
+                      return (
+                        <img
+                          src={imageData.image}
+                          alt="Signature"
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "contain",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      )
+
+                    }) : null} */}
                   </div>
                 ))}
               </div>
@@ -770,6 +898,9 @@ const UploadPhoto = () => {
                         <TableHead className="w-[15px] text-right">
                           Color
                         </TableHead>
+                        <TableHead className="w-[15px] text-right">
+                          Center Align
+                          </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -960,6 +1091,28 @@ const UploadPhoto = () => {
                               </DialogContent>
                             </Dialog>
                           </TableCell>
+
+                          <TableCell>
+                          <Toggle 
+                          onClick={() => {
+                            const updateData = draggableData.map((item) => {
+                              if(item.id === data.id) {
+                                return {
+                                  ...item,
+                                  isCentered: !item.isCentered
+                                }
+                              }
+                              return item
+                            })
+                            setDraggableData(updateData)
+                          }}
+                          aria-label="Toggle italic text-white">
+                            <span
+                            className="text-white"
+                            >center</span>
+                            </Toggle>
+                            </TableCell>
+
                         </TableRow>
                       ))}
                     </TableBody>
@@ -985,7 +1138,7 @@ const UploadPhoto = () => {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                         onClick={() => {
-                          handleSave();
+                          canvasToPDF(canvasRef, { autoDownload: true });
                         }}
                         >Jpeg </DropdownMenuItem>
                         <DropdownMenuItem>Pdf</DropdownMenuItem>

@@ -8,6 +8,7 @@ export interface DraggableItem {
     height: number;
     textColor: string;
     textSize: number;
+    isCentered: boolean;
   }
 
 
@@ -22,6 +23,5 @@ export interface ImageDataProps {
     height: number;
     textColor: string;
     textSize: number;
-    image: HTMLImageElement;
-    type: "image";
+    image: HTMLImageElement | null;
 }  
