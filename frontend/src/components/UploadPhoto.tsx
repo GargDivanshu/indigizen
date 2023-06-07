@@ -4,16 +4,24 @@ import { BsUpload } from "react-icons/bs";
 import { RiImageAddFill } from "react-icons/ri";
 import { BiReset, BiColorFill } from "react-icons/bi";
 import { AiOutlineDelete } from "react-icons/ai";
+import { FaSignature } from "react-icons/fa";
+
 import axios from "axios";
-
-
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import {
   IoPhonePortraitOutline,
   IoPhoneLandscapeOutline,
   IoSquareOutline,
 } from "react-icons/io5";
 
-import { DraggableItem } from "../types";
+import { DraggableItem, ImageDataProps } from "../types";
 import { fileSchema, dimensionSchema } from "./../validator/index";
 import { useToast } from "./ui/use-toast";
 import ColorPicker from "./ColorPicker";
@@ -80,6 +88,7 @@ const UploadPhoto = () => {
       width: 100,
       height: 20,
       textColor: "FFFFFF",
+      textSize: 18,
     },
     {
       id: "date",
@@ -90,6 +99,7 @@ const UploadPhoto = () => {
       width: 100,
       height: 20,
       textColor: "FFFFFF",
+      textSize: 18,
     },
     {
       id: "link",
@@ -100,8 +110,11 @@ const UploadPhoto = () => {
       width: 100,
       height: 20,
       textColor: "FFFFFF",
+      textSize: 18,
     },
   ]);
+
+  const [imageData, setImageData] = useState<ImageDataProps[]>([]);
 
   const { toast } = useToast();
   const containerRef = useRef(null);
@@ -280,6 +293,7 @@ const UploadPhoto = () => {
       width: 100,
       height: 20,
       textColor: "FFFFFF",
+      textSize: 18,
     };
     setDraggableData((prevData) => [...prevData, newField]);
   };
@@ -319,6 +333,9 @@ const UploadPhoto = () => {
       });
     }
   };
+
+  console.log(draggableData);
+
   console.log(canvas_dimensions);
   const handleHeightChange = (event, id) => {
     const heightInput = event.target.value;
@@ -330,7 +347,7 @@ const UploadPhoto = () => {
       if (validationResult.success) {
         const updatedData = draggableData.map((data) => {
           if (data.id === id) {
-            return { ...data, height };
+            return { ...data, height, textSize: height - 2 };
           }
           return data;
         });
@@ -363,25 +380,78 @@ const UploadPhoto = () => {
   //   setDraggableData(updatedData);
   // }
 
+  const uploadSignature = (event) => {
+    const file = event.target?.files?.[0];
+
+    if (file && file.type === "image/png") {
+      const validationResult = fileSchema.safeParse(file);
+
+      if (validationResult.success) {
+        setSelectedFile(file);
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const image = new Image();
+          image.src = reader.result as string;
+          image.onload = () => {
+            const updatedData = draggableData.map((data) => {
+              return {
+                ...data,
+                isDragging: false,
+                dragStartPosition: { x: 0, y: 0 },
+              };
+            });
+
+            const newImageData = {
+              id: `signature_${Date.now()}`,
+              value: "",
+              position: { x: 0, y: 0 },
+              isDragging: false,
+              dragStartPosition: { x: 0, y: 0 },
+              width: image.width,
+              height: image.height,
+              textColor: "FFFFFF",
+              textSize: 18,
+              image: image,
+            };
+
+            updatedData.push(newImageData);
+            setDraggableData(updatedData);
+          };
+        };
+        reader.readAsDataURL(file);
+      } else {
+        toast({
+          title: "Invalid Input File",
+          description: "Only PNG files are supported",
+        });
+        console.error("File type not supported");
+      }
+    }
+  };
+
   const handleSave = async () => {
     try {
       const dataURL = await captureCanvasImage();
-  
+
       const data = {
         name: selectedFile?.name,
         photo: dataURL,
       };
-  
+
       console.log(data);
-  
-      const response = await axios.post("http://localhost:8080/api/v1/post", data);
+
+      const response = await axios.post(
+        "http://localhost:8080/api/v1/post",
+        data
+      );
       console.log(response.data.data[1]);
-  
+
       console.log("saved");
       toast({
         title: "Saved",
         description: "Your image has been saved",
-      })
+      });
     } catch (error) {
       console.log(error);
     }
@@ -393,7 +463,7 @@ const UploadPhoto = () => {
       const ctx = canvas.getContext("2d");
       const image = new Image();
       image.src = previewImage;
-  
+
       image.onload = () => {
         const aspectRatio = image.width / image.height;
         let width, height;
@@ -404,22 +474,31 @@ const UploadPhoto = () => {
           height = canvas.height;
           width = height * aspectRatio;
         }
-  
+
         canvas.width = canvas.width; // Clear the canvas
         ctx.drawImage(image, 0, 0, width, height);
-  
+
         draggableData.forEach((data) => {
           const inputWidth = data.width;
           const inputHeight = data.height;
           ctx.fillStyle = `rgba(0, 0, 0, 0.5)`;
-          ctx.fillRect(data.position.x, data.position.y, inputWidth, inputHeight);
+          ctx.fillRect(
+            data.position.x,
+            data.position.y,
+            inputWidth,
+            inputHeight
+          );
           ctx.font = "12px Arial";
           ctx.fillStyle = `#${data.textColor}`;
-          ctx.fillText(data.value, data.position.x, data.position.y + inputHeight / 2 + 6);
+          ctx.fillText(
+            data.value,
+            data.position.x,
+            data.position.y + inputHeight / 2 + 6
+          );
         });
-  
+
         const dataURL = canvas.toDataURL();
-  
+
         if (dataURL) {
           setFinalImage(dataURL);
           resolve(dataURL);
@@ -427,13 +506,12 @@ const UploadPhoto = () => {
           reject(new Error("Failed to capture canvas image"));
         }
       };
-  
+
       image.onerror = () => {
         reject(new Error("Failed to load image"));
       };
     });
   };
-  
 
   return (
     <div className="relative bg-blank h-screen scrollbar-macos-style">
@@ -455,18 +533,18 @@ const UploadPhoto = () => {
       </div>
       <div className={`bg-blank h-full text-xs text-white`}>
         <div className="relative h-full grid grid-cols-2 justify-around">
-          <div>
+          <div className="">
             {previewImage ? (
               <div
-                className={`mx-auto overflow-hidden relative w-[${300}px] h-[${300}px]`}
+                className={`mx-auto overflow-hidden relative`}
                 ref={containerRef}
               >
                 <canvas
                   ref={canvasRef}
                   // style={{ width: "100%", height: "100%"}}
-                  className="bg-black/50 h-full w-full "
+                  className={`bg-black/50  w-[${canvas_dimensions.x}px] h-[${canvas_dimensions.y}px]`}
                 />
-                {draggableData.map((data) => (
+                {[...draggableData, ...imageData].map((data) => (
                   <div
                     key={data.id}
                     style={{
@@ -487,18 +565,32 @@ const UploadPhoto = () => {
                     <input
                       type="text"
                       value={data.value}
-                      className="select-none"
+                      className={`select-none `}
                       style={{
                         margin: 0,
-                        color: `#${data.textColor}}`,
+                        cursor: "move",
+                        color: `#${data.textColor}`,
                         background: "rgba(0, 0, 0, 0.5)",
                         width: `${data.width}px`,
                         height: `${data.height}px`,
                         padding: "4px 8px",
                         border: "none",
+                        fontSize: `${data.textSize}px`,
                       }}
                       readOnly
                     />
+                    {/* {imageData.value ? (
+                      <img
+                        src={imageData.values}
+                        alt="Signature"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "contain",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    ) : null} */}
                   </div>
                 ))}
               </div>
@@ -594,7 +686,7 @@ const UploadPhoto = () => {
                             <IoPhoneLandscapeOutline
                               onClick={() => {
                                 setCanvasDimensions({
-                                  x: 400,
+                                  x: 600,
                                   y: 400,
                                 });
                               }}
@@ -627,6 +719,36 @@ const UploadPhoto = () => {
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>Square Canvas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                    <input
+                      type="file"
+                      className=""
+                      onChange={uploadSignature}
+                    />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={uploadSignature}
+                            className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2"
+                          >
+                            <FaSignature
+                              onClick={() => {
+                                setCanvasDimensions({
+                                  x: 500,
+                                  y: 500,
+                                });
+                              }}
+                              fontSize={15}
+                              className="text-center mx-auto hover:text-blue-600"
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Upload Signature</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -843,13 +965,33 @@ const UploadPhoto = () => {
                     </TableBody>
                   </Table>
 
-                  <button 
-                  onClick={() => {
-                    handleSave();
-                  }}
-                  className="px-4 py-2 mx-2 bg-blue-500 text-white rounded-md">
-                    Save
-                  </button>
+                  <div className="flex ">
+                    <button
+                      onClick={() => {
+                        handleSave();
+                      }}
+                      className="px-4 py-2 ml-2 bg-blue-500 text-white rounded-l-md"
+                    >
+                      Save
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger>
+                        <button className="px-2 border-l-[1px] border-white/50 py-2 bg-blue-500 text-white rounded-r-md">
+                          ▼
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuLabel>Save as</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                        onClick={() => {
+                          handleSave();
+                        }}
+                        >Jpeg </DropdownMenuItem>
+                        <DropdownMenuItem>Pdf</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </div>
             </>
@@ -860,12 +1002,12 @@ const UploadPhoto = () => {
                   <div className="flex items-center">
                     <RiImageAddFill className="mr-2" />
                     <button
-                    onClick={() => {
-                      toast({
-                        title: "No Image Selected",
-                        description: "Please upload an image to continue",
-                      })
-                    }}
+                      onClick={() => {
+                        toast({
+                          title: "No Image Selected",
+                          description: "Please upload an image to continue",
+                        });
+                      }}
                       className="
                   cursor-not-allowed
                   px-4 py-2 bg-blue-500 text-white rounded-md"
@@ -944,6 +1086,28 @@ const UploadPhoto = () => {
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
+
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
+                            <FaSignature
+                              onClick={() => {
+                                setCanvasDimensions({
+                                  x: 500,
+                                  y: 500,
+                                });
+                              }}
+                              fontSize={15}
+                              className="text-center mx-auto hover:text-blue-600"
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Upload Signature</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
 
                   <Table>
@@ -967,14 +1131,15 @@ const UploadPhoto = () => {
                     <TableBody></TableBody>
                   </Table>
 
-                  <button 
-                  onClick={() => {
-                    toast({
-                      title: "No Image Selected",
-                      description: "Please upload an image to continue",
-                    })
-                  }}
-                  className="cursor-not-allowed px-4 py-2 m-2 bg-blue-500 text-white rounded-md">
+                  <button
+                    onClick={() => {
+                      toast({
+                        title: "No Image Selected",
+                        description: "Please upload an image to continue",
+                      });
+                    }}
+                    className="cursor-not-allowed px-4 py-2 m-2 bg-blue-500 text-white rounded-md"
+                  >
                     Save
                   </button>
                 </div>
