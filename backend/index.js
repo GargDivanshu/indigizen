@@ -5,6 +5,8 @@ import bodyParser from 'body-parser';
 import connectDB from './mongodb/connect.js';
 import postRoutes from './routes/postRoutes.js';
 import toPDFRoute from './routes/toPDFRoute.js';
+import processingRoutes from './routes/processingRoutes.js';
+
 
 dotenv.config();
 
@@ -16,11 +18,11 @@ app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
 app.use('/api/v1/post', postRoutes);
 app.use('/api/v1/toPDF', toPDFRoute);
-
+app.use('/api/v1/processing', processingRoutes);
 
 app.get('/', async (req, res) => {
   res.status(200).json({
-    message: 'Hello!',
+    message: 'Hello from IdigiZen!',
   });
 });
 
