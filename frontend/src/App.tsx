@@ -5,6 +5,7 @@ import UploadPhoto from './components/UploadPhoto';
 import { Toaster } from './components/ui/Toaster';
 
 
+
 const App: React.FC = () => {
   return (
     <>
@@ -13,6 +14,8 @@ const App: React.FC = () => {
       <h1 className="text-center text-3xl text-blue-500 font-bold ">Upload Photo and Preview</h1>
       <UploadPhoto />
       </div>
+
+      
     </div>
     <Toaster/>
     </>

@@ -6,7 +6,7 @@ import { BiReset, BiColorFill } from "react-icons/bi";
 import { AiOutlineDelete } from "react-icons/ai";
 import { LuClipboardSignature } from "react-icons/lu";
 import html2canvas from "html2canvas";
-import { Stage, Layer, Image as KonvaImage } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Group } from "react-konva";
 import axios from "axios";
 import {
   DropdownMenu,
@@ -85,7 +85,7 @@ const UploadPhoto = () => {
     x: 600,
     y: 400,
   });
-
+  const imageRef = useRef(null);
   const [draggableData, setDraggableData] = useState<DraggableItem[]>([
     {
       id: "title",
@@ -139,22 +139,65 @@ const UploadPhoto = () => {
     };
   };
 
+  const fitImageToCanvas = (
+    imageWidth,
+    imageHeight,
+    canvasWidth,
+    canvasHeight
+  ) => {
+    let newWidth, newHeight, offsetX, offsetY;
+  
+    if (imageWidth <= canvasWidth && imageHeight <= canvasHeight) {
+      // If the image is smaller than the canvas, center it
+      newWidth = imageWidth;
+      newHeight = imageHeight;
+      offsetX = Math.round((canvasWidth - newWidth) / 2);
+      offsetY = Math.round((canvasHeight - newHeight) / 2);
+    } else {
+      // If the image is larger than the canvas, fit it while maintaining aspect ratio
+      const imageAspectRatio = imageWidth / imageHeight;
+      const canvasAspectRatio = canvasWidth / canvasHeight;
+  
+      if (imageAspectRatio > canvasAspectRatio) {
+        newWidth = canvasWidth;
+        newHeight = canvasWidth / imageAspectRatio;
+      } else {
+        newWidth = canvasHeight * imageAspectRatio;
+        newHeight = canvasHeight;
+      }
+  
+      offsetX = Math.round((canvasWidth - newWidth) / 2);
+      offsetY = Math.round((canvasHeight - newHeight) / 2);
+    }
+  
+    return { newWidth, newHeight, offsetX, offsetY };
+  };
+  
+  
+  
+
   useEffect(() => {
-    if (previewImage) {
+    if (previewImage && imageRef.current) {
       const img = new Image();
       img.src = previewImage;
       img.onload = () => {
         setImage(img as IImage);
-        setNewImageDimensions({
-          width: img.width,
-          height: img.height,
-        });
-        const offsetX = (canvas_dimensions.x - img.width) / 2;
-        const offsetY = canvas_dimensions.y - img.height;
+  
+        const { newWidth, newHeight, offsetX, offsetY } = fitImageToCanvas(
+          img.width,
+          img.height,
+          canvas_dimensions.x,
+          canvas_dimensions.y
+        );
+  
+        setNewImageDimensions({ width: newWidth, height: newHeight });
         setOffset({ x: offsetX, y: offsetY });
+  
+        imageRef.current.cache();
+        imageRef.current.getLayer().batchDraw();
       };
     }
-  }, [previewImage, canvas_dimensions]);
+  }, [previewImage, canvas_dimensions, imageRef]);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -305,99 +348,64 @@ const UploadPhoto = () => {
   //   console.log("Image Offset:", offsetX, offsetY);
   // };
 
-  const resizeImage = (image, newWidth, newHeight) => {
-    const canvas = document.createElement("canvas");
-    canvas.width = newWidth;
-    canvas.height = newHeight;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(image, 0, 0, newWidth, newHeight);
-    const resizedImage = new Image();
-    resizedImage.src = canvas.toDataURL("image/png");
-    return resizedImage;
-  };
-
   const handleFileInputChange = async (event) => {
     const file = event.target.files[0];
-
-    if (file) {
-      // Validate the selected file using the schema
-
-      const validationResult = fileSchema.safeParse(file);
-
-      if (validationResult.success) {
-        setSelectedFile(file);
-        const image = new Image();
-        image.src = URL.createObjectURL(file);
-        image.onload = () => {
-          setOriginalImageDimensions({
-            width: image.width,
-            height: image.height,
-          });
-
-          // Calculate the scaling factor
-
-          const widthScale = image.width / canvas_dimensions.x;
-          const heightScale = image.height / canvas_dimensions.y;
-          const scalingFactor = Math.min(widthScale, heightScale);
-
-          // Calculate the aspect ratios of the image and the canvas
-          const imageAspectRatio = canvas_dimensions.x / canvas_dimensions.y;
-          const canvasAspectRatio = canvas_dimensions.x / canvas_dimensions.y;
-
-          // Calculate the new dimensions of the image based on the aspect ratios
-          let newWidth, newHeight;
-          if (imageAspectRatio > canvasAspectRatio) {
-            newWidth = canvas_dimensions.x;
-            newHeight = Math.floor(
-              canvas_dimensions.y * (canvas_dimensions.y / canvas_dimensions.x)
-            );
-          } else {
-            newWidth = Math.floor(
-              canvas_dimensions.x * (canvas_dimensions.x / canvas_dimensions.y)
-            );
-            newHeight = canvas_dimensions.y;
-          }
-
-          const resizedImage = resizeImage(image, newWidth, newHeight);
-          setOriginalImageDimensions({
-            width: resizedImage.width,
-            height: resizedImage.height,
-          });
-
-          // Send the resized image and scaling factor to the backend
-          setNewImageDimensions({ width: newWidth, height: newHeight });
-
-          const offsetX = (canvas_dimensions.x - newWidth) / 2;
-          const offsetY = (canvas_dimensions.y - newHeight) / 2;
-          setOffset({ x: offsetX, y: offsetY });
-
-          // Send the original image and scaling factor to the backend
-          processImage(file, scalingFactor);
-        };
-
-        const reader = new FileReader();
-        reader.onload = async () => {
-          setPreviewImage(reader.result);
-        };
-        reader.readAsDataURL(file);
-
-        const currentDate = getCurrentDate(); // Get the current date
-        const updatedData = draggableData.map((data) => {
-          if (data.id === "date") {
-            return { ...data, value: currentDate }; // Update the value with the current date
-          }
-          return data;
-        });
-        setDraggableData(updatedData);
-      } else {
-        toast({
-          title: "Invalid Input File",
-          description: "Only JPEG/JPG and PNG files are supported",
-        });
-        console.error("File type not supported");
-      }
+  
+    if (!file) {
+      return;
     }
+  
+    const supportedTypes = ["image/jpeg", "image/png"];
+    if (!supportedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid Input File",
+        description: "Only JPEG/JPG and PNG files are supported",
+      });
+      console.error("File type not supported");
+      return;
+    }
+  
+    setSelectedFile(file);
+    const image = new Image();
+    image.src = URL.createObjectURL(file);
+    image.onload = () => {
+      setOriginalImageDimensions({
+        width: image.width,
+        height: image.height,
+      });
+  
+      const { newWidth, newHeight, offsetX, offsetY } = fitImageToCanvas(
+        image.width,
+        image.height,
+        canvas_dimensions.x,
+        canvas_dimensions.y
+      );
+  
+      setNewImageDimensions({ width: newWidth, height: newHeight });
+      setOffset({ x: offsetX, y: offsetY });
+  
+      // Send the original image and scaling factor to the backend
+      const scalingFactor = newWidth / image.width;
+      processImage(file, scalingFactor);
+    };
+  
+    const reader = new FileReader();
+    reader.onload = async () => {
+      setPreviewImage(reader.result);
+    };
+    reader.readAsDataURL(file);
+  
+    const currentDate = getCurrentDate(); // Get the current date
+    const updatedData = draggableData.map((data) => {
+      if (data.id === "date") {
+        return { ...data, value: currentDate }; // Update the value with the current date
+      }
+      return data;
+    });
+    setDraggableData(updatedData);
   };
+  
+  
 
   const processImage = async (file, scalingFactor) => {
     const formData = new FormData();
@@ -749,24 +757,26 @@ const UploadPhoto = () => {
           <div className="col-span-2 h-screen">
             {previewImage ? (
               <div
-                className={`mx-auto overflow-hidden h-[90%] w-[100%] relative border-8 border-red-600`}
+                className={`mx-auto overflow-hidden h-[90%] w-[100%] relative `}
                 ref={containerRef}
               >
                 <Stage
-                  className="border-8 h-[100%] w-[100%] border-blue-600"
+                  className="h-[100%] w-[100%] "
                   width={canvas_dimensions.x}
                   height={canvas_dimensions.y}
                 >
                   <Layer>
-                    <KonvaImage
-                      x={offset.x}
-                      y={offset.y}
-                      image={image}
-                      width={newImageDimensions.width}
-                      height={newImageDimensions.height}
-                    />
+                    <Group x={offset.x} y={offset.y}>
+                      <KonvaImage
+                        ref={imageRef}
+                        image={image}
+                        width={newImageDimensions.width}
+                        height={newImageDimensions.height}
+                      />
+                    </Group>
                   </Layer>
                 </Stage>
+
                 {draggableData.map((data) => (
                   <div
                     key={data.id}
@@ -823,11 +833,11 @@ const UploadPhoto = () => {
               </div>
             ) : (
               <div
-                className={`mx-auto overflow-hidden h-[90%] w-[100%] relative border-8 border-red-600`}
+                className={`mx-auto overflow-hidden h-[90%] w-[100%] relative`}
                 ref={containerRef}
               >
                 <Stage
-                  className="mx-auto overflow-hidden h-[90%] w-[100%] relative border-8 border-blue-600"
+                  className="mx-auto overflow-hidden h-[90%] w-[100%] relative "
                   width={canvas_dimensions.x}
                   height={canvas_dimensions.y}
                 >
