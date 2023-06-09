@@ -6,8 +6,7 @@ import { BiReset, BiColorFill } from "react-icons/bi";
 import { AiOutlineDelete } from "react-icons/ai";
 import { LuClipboardSignature } from "react-icons/lu";
 import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
-
+import { Stage, Layer, Image as KonvaImage } from "react-konva";
 import axios from "axios";
 import {
   DropdownMenu,
@@ -62,7 +61,10 @@ import {
   TableRow,
 } from "./ui/table";
 
-import Jimp from "jimp";
+interface IImage extends HTMLImageElement {
+  width: number;
+  height: number;
+}
 
 const UploadPhoto = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -80,8 +82,8 @@ const UploadPhoto = () => {
   // const [date, setDate] = useState("");
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [canvas_dimensions, setCanvasDimensions] = useState({
-    x: 500,
-    y: 500,
+    x: 600,
+    y: 400,
   });
 
   const [draggableData, setDraggableData] = useState<DraggableItem[]>([
@@ -124,39 +126,53 @@ const UploadPhoto = () => {
   ]);
 
   const [imageData, setImageData] = useState<ImageDataProps[]>([]);
+  const [image, setImage] = useState<IImage | null>(null);
 
   const { toast } = useToast();
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
 
+  const getCanvasDimensions = () => {
+    return {
+      x: window.innerWidth * 0.7,
+      y: window.innerHeight,
+    };
+  };
+
   useEffect(() => {
     if (previewImage) {
-      const image = new Image();
-      image.src = previewImage;
-      image.onload = () => {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext("2d");
-        ctx.imageSmoothingEnabled = true;
-  
-        canvas.width = canvas_dimensions.x;
-        canvas.height = canvas_dimensions.y;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
-        const offsetX = (canvas_dimensions.x - image.width) / 2; // Calculate the horizontal offset
-        const offsetY = (canvas_dimensions.y - image.height) / 2; // Calculate the vertical offset
-  
-        ctx.drawImage(image, offsetX, offsetY);
-  
-        setOffset({ x: offsetX, y: offsetY });
-  
-        // Set the new image dimensions
+      const img = new Image();
+      img.src = previewImage;
+      img.onload = () => {
+        setImage(img as IImage);
         setNewImageDimensions({
-          width: image.width,
-          height: image.height,
+          width: img.width,
+          height: img.height,
         });
+        const offsetX = (canvas_dimensions.x - img.width) / 2;
+        const offsetY = canvas_dimensions.y - img.height;
+        setOffset({ x: offsetX, y: offsetY });
       };
     }
   }, [previewImage, canvas_dimensions]);
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      setCanvasDimensions(getCanvasDimensions());
+    };
+
+    updateDimensions();
+
+    const handleResize = () => {
+      updateDimensions();
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   const canvasToPDF = async (canvasRef, filename) => {
     const canvas = canvasRef.current;
@@ -175,6 +191,7 @@ const UploadPhoto = () => {
       downloadLink.href = URL.createObjectURL(
         new Blob([response.data], { type: "application/pdf" })
       );
+      console.log(response.data);
       downloadLink.setAttribute("download", "canvas.pdf");
       downloadLink.click();
     } catch (error) {
@@ -288,6 +305,17 @@ const UploadPhoto = () => {
   //   console.log("Image Offset:", offsetX, offsetY);
   // };
 
+  const resizeImage = (image, newWidth, newHeight) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = newWidth;
+    canvas.height = newHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(image, 0, 0, newWidth, newHeight);
+    const resizedImage = new Image();
+    resizedImage.src = canvas.toDataURL("image/png");
+    return resizedImage;
+  };
+
   const handleFileInputChange = async (event) => {
     const file = event.target.files[0];
 
@@ -305,12 +333,51 @@ const UploadPhoto = () => {
             width: image.width,
             height: image.height,
           });
+
+          // Calculate the scaling factor
+
+          const widthScale = image.width / canvas_dimensions.x;
+          const heightScale = image.height / canvas_dimensions.y;
+          const scalingFactor = Math.min(widthScale, heightScale);
+
+          // Calculate the aspect ratios of the image and the canvas
+          const imageAspectRatio = canvas_dimensions.x / canvas_dimensions.y;
+          const canvasAspectRatio = canvas_dimensions.x / canvas_dimensions.y;
+
+          // Calculate the new dimensions of the image based on the aspect ratios
+          let newWidth, newHeight;
+          if (imageAspectRatio > canvasAspectRatio) {
+            newWidth = canvas_dimensions.x;
+            newHeight = Math.floor(
+              canvas_dimensions.y * (canvas_dimensions.y / canvas_dimensions.x)
+            );
+          } else {
+            newWidth = Math.floor(
+              canvas_dimensions.x * (canvas_dimensions.x / canvas_dimensions.y)
+            );
+            newHeight = canvas_dimensions.y;
+          }
+
+          const resizedImage = resizeImage(image, newWidth, newHeight);
+          setOriginalImageDimensions({
+            width: resizedImage.width,
+            height: resizedImage.height,
+          });
+
+          // Send the resized image and scaling factor to the backend
+          setNewImageDimensions({ width: newWidth, height: newHeight });
+
+          const offsetX = (canvas_dimensions.x - newWidth) / 2;
+          const offsetY = (canvas_dimensions.y - newHeight) / 2;
+          setOffset({ x: offsetX, y: offsetY });
+
+          // Send the original image and scaling factor to the backend
+          processImage(file, scalingFactor);
         };
 
         const reader = new FileReader();
         reader.onload = async () => {
           setPreviewImage(reader.result);
-          await processImage(file);
         };
         reader.readAsDataURL(file);
 
@@ -332,10 +399,11 @@ const UploadPhoto = () => {
     }
   };
 
-  const processImage = async (file) => {
+  const processImage = async (file, scalingFactor) => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("canvasDimensions", JSON.stringify(canvas_dimensions));
+    formData.append("scalingFactor", scalingFactor);
 
     try {
       const response = await fetch("http://localhost:8080/api/v1/processing", {
@@ -521,142 +589,142 @@ const UploadPhoto = () => {
   //   setDraggableData(updatedData);
   // }
 
-  const uploadSignature = (event) => {
-    const file = event.target?.files?.[0];
+  // const uploadSignature = (event) => {
+  //   const file = event.target?.files?.[0];
 
-    if (file && file.type === "image/png") {
-      const validationResult = fileSchema.safeParse(file);
+  //   if (file && file.type === "image/png") {
+  //     const validationResult = fileSchema.safeParse(file);
 
-      if (validationResult.success) {
-        setSelectedFile(file);
+  //     if (validationResult.success) {
+  //       setSelectedFile(file);
 
-        const reader = new FileReader();
-        reader.onload = () => {
-          const image = new Image();
-          image.src = reader.result as string;
-          image.onload = () => {
-            const updatedData = imageData.map((data) => {
-              return {
-                ...data,
-                isDragging: false,
-                dragStartPosition: { x: 0, y: 0 },
-                width: image.width,
-                height: image.height,
-                image: image,
-              };
-            });
+  //       const reader = new FileReader();
+  //       reader.onload = () => {
+  //         const image = new Image();
+  //         image.src = reader.result as string;
+  //         image.onload = () => {
+  //           const updatedData = imageData.map((data) => {
+  //             return {
+  //               ...data,
+  //               isDragging: false,
+  //               dragStartPosition: { x: 0, y: 0 },
+  //               width: image.width,
+  //               height: image.height,
+  //               image: image,
+  //             };
+  //           });
 
-            const newImageData = {
-              id: `signature_${Date.now()}`,
-              value: "",
-              position: { x: 0, y: 0 },
-              isDragging: false,
-              dragStartPosition: { x: 0, y: 0 },
-              width: image.width,
-              height: image.height,
-              textColor: "FFFFFF",
-              textSize: 18,
-              image: image,
-            };
+  //           const newImageData = {
+  //             id: `signature_${Date.now()}`,
+  //             value: "",
+  //             position: { x: 0, y: 0 },
+  //             isDragging: false,
+  //             dragStartPosition: { x: 0, y: 0 },
+  //             width: image.width,
+  //             height: image.height,
+  //             textColor: "FFFFFF",
+  //             textSize: 18,
+  //             image: image,
+  //           };
 
-            updatedData.push(newImageData);
-            setImageData(updatedData);
-          };
-        };
-        reader.readAsDataURL(file);
-      } else {
-        toast({
-          title: "Invalid Input File",
-          description: "Only PNG files are supported",
-        });
-        console.error("File type not supported");
-      }
-    }
-  };
+  //           updatedData.push(newImageData);
+  //           setImageData(updatedData);
+  //         };
+  //       };
+  //       reader.readAsDataURL(file);
+  //     } else {
+  //       toast({
+  //         title: "Invalid Input File",
+  //         description: "Only PNG files are supported",
+  //       });
+  //       console.error("File type not supported");
+  //     }
+  //   }
+  // };
 
-  const handleSave = async () => {
-    try {
-      const dataURL = await captureCanvasImage();
+  // const handleSave = async () => {
+  //   try {
+  //     const dataURL = await captureCanvasImage();
 
-      const data = {
-        name: selectedFile?.name,
-        photo: dataURL,
-      };
+  //     const data = {
+  //       name: selectedFile?.name,
+  //       photo: dataURL,
+  //     };
 
-      console.log(data);
+  //     console.log(data);
 
-      const response = await axios.post(
-        "http://localhost:8080/api/v1/post",
-        data
-      );
-      console.log(response.data.data[1]);
+  //     const response = await axios.post(
+  //       "http://localhost:8080/api/v1/post",
+  //       data
+  //     );
+  //     console.log(response.data.data[1]);
 
-      console.log("saved");
-      toast({
-        title: "Saved",
-        description: "Your image has been saved",
-      });
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  //     console.log("saved");
+  //     toast({
+  //       title: "Saved",
+  //       description: "Your image has been saved",
+  //     });
+  //   } catch (error) {
+  //     console.log(error);
+  //   }
+  // };
 
-  const captureCanvasImage = () => {
-    return new Promise<string>((resolve, reject) => {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      ctx.imageSmoothingEnabled = true;
-      const image = new Image();
-      image.src = previewImage;
+  // const captureCanvasImage = () => {
+  //   return new Promise<string>((resolve, reject) => {
+  //     const canvas = canvasRef.current;
+  //     const ctx = canvas.getContext("2d");
+  //     ctx.imageSmoothingEnabled = true;
+  //     const image = new Image();
+  //     image.src = previewImage;
 
-      image.onload = () => {
-        const aspectRatio = image.width / image.height;
-        let width, height;
-        if (aspectRatio > 1) {
-          width = canvas.width;
-          height = width / aspectRatio;
-        } else {
-          height = canvas.height;
-          width = height * aspectRatio;
-        }
+  //     image.onload = () => {
+  //       const aspectRatio = image.width / image.height;
+  //       let width, height;
+  //       if (aspectRatio > 1) {
+  //         width = canvas.width;
+  //         height = width / aspectRatio;
+  //       } else {
+  //         height = canvas.height;
+  //         width = height * aspectRatio;
+  //       }
 
-        canvas.width = canvas.width; // Clear the canvas
-        ctx.drawImage(image, 0, 0, width, height);
+  //       canvas.width = canvas.width; // Clear the canvas
+  //       ctx.drawImage(image, 0, 0, width, height);
 
-        draggableData.forEach((data) => {
-          const inputWidth = data.width;
-          const inputHeight = data.height;
-          ctx.fillStyle = `rgba(0, 0, 0, 0.0)`;
-          ctx.fillRect(
-            data.position.x,
-            data.position.y,
-            inputWidth,
-            inputHeight
-          );
-          ctx.font = `${data.textSize}px Arial`;
-          ctx.fillStyle = "#000";
-          ctx.fillText(
-            data.value,
-            data.position.x + inputWidth / 2 - 16,
-            data.position.y + inputHeight / 2 + 16
-          );
-        });
+  //       draggableData.forEach((data) => {
+  //         const inputWidth = data.width;
+  //         const inputHeight = data.height;
+  //         ctx.fillStyle = `rgba(0, 0, 0, 0.0)`;
+  //         ctx.fillRect(
+  //           data.position.x,
+  //           data.position.y,
+  //           inputWidth,
+  //           inputHeight
+  //         );
+  //         ctx.font = `${data.textSize}px Arial`;
+  //         ctx.fillStyle = "#000";
+  //         ctx.fillText(
+  //           data.value,
+  //           data.position.x + inputWidth / 2 - 16,
+  //           data.position.y + inputHeight / 2 + 16
+  //         );
+  //       });
 
-        const dataURL = canvas.toDataURL();
+  //       const dataURL = canvas.toDataURL();
 
-        if (dataURL) {
-          setFinalImage(dataURL);
-          resolve(dataURL);
-        } else {
-          reject(new Error("Failed to capture canvas image"));
-        }
-      };
+  //       if (dataURL) {
+  //         setFinalImage(dataURL);
+  //         resolve(dataURL);
+  //       } else {
+  //         reject(new Error("Failed to capture canvas image"));
+  //       }
+  //     };
 
-      image.onerror = () => {
-        reject(new Error("Failed to load image"));
-      };
-    });
-  };
+  //     image.onerror = () => {
+  //       reject(new Error("Failed to load image"));
+  //     };
+  //   });
+  // };
 
   return (
     <div className="relative bg-blank h-screen scrollbar-macos-style">
@@ -677,18 +745,28 @@ const UploadPhoto = () => {
         </label>
       </div>
       <div className={`bg-blank h-full text-xs text-white`}>
-        <div className="relative h-full grid grid-cols-2 justify-around">
-          <div className="">
+        <div className="relative h-full grid grid-cols-3 justify-around ">
+          <div className="col-span-2 h-screen">
             {previewImage ? (
               <div
-                className={`mx-auto overflow-hidden relative`}
+                className={`mx-auto overflow-hidden h-[90%] w-[100%] relative border-8 border-red-600`}
                 ref={containerRef}
               >
-                <canvas
-                  ref={canvasRef}
-                  // style={{ width: "100%", height: "100%"}}
-                  className={`bg-black/50  w-[${canvas_dimensions.x}px] h-[${canvas_dimensions.y}px]`}
-                />
+                <Stage
+                  className="border-8 h-[100%] w-[100%] border-blue-600"
+                  width={canvas_dimensions.x}
+                  height={canvas_dimensions.y}
+                >
+                  <Layer>
+                    <KonvaImage
+                      x={offset.x}
+                      y={offset.y}
+                      image={image}
+                      width={newImageDimensions.width}
+                      height={newImageDimensions.height}
+                    />
+                  </Layer>
+                </Stage>
                 {draggableData.map((data) => (
                   <div
                     key={data.id}
@@ -745,14 +823,18 @@ const UploadPhoto = () => {
               </div>
             ) : (
               <div
-                className="mx-auto overflow-hidden relative w-[300px] h-[300px]"
+                className={`mx-auto overflow-hidden h-[90%] w-[100%] relative border-8 border-red-600`}
                 ref={containerRef}
               >
-                <canvas
-                  ref={canvasRef}
-                  // style={{ width: "100%", height: "100%"}}
-                  className="bg-black/50 h-full w-full "
-                />
+                <Stage
+                  className="mx-auto overflow-hidden h-[90%] w-[100%] relative border-8 border-blue-600"
+                  width={canvas_dimensions.x}
+                  height={canvas_dimensions.y}
+                >
+                  <Layer>
+                    <KonvaImage x={offset.x} y={offset.y} image={image} />
+                  </Layer>
+                </Stage>
               </div>
             )}
 
@@ -795,7 +877,7 @@ const UploadPhoto = () => {
                 2
                 </button>
               </div> */}
-              <div className="absolute overflow-y-auto px-4 right-0 pt-2 border-l-[1px] border-border h-full bg-panels">
+              <div className="max-w-[364px] col-span-1 absolute overflow-y-auto px-4 right-0 pt-2 border-l-[1px] border-border h-full bg-panels">
                 <div className="mx-auto">
                   <div className="flex items-center">
                     <RiImageAddFill className="mr-2" />
@@ -875,13 +957,13 @@ const UploadPhoto = () => {
                     <input
                       type="file"
                       className="hidden"
-                      onChange={uploadSignature}
+                      // onChange={uploadSignature}
                     />
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            onClick={uploadSignature}
+                            // onClick={uploadSignature}
                             className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2"
                           >
                             <LuClipboardSignature
@@ -949,7 +1031,7 @@ const UploadPhoto = () => {
                                 onChange={(event) =>
                                   handleWidthChange(event, data.id)
                                 }
-                                className="px-2 border rounded-md"
+                                className="px-2 border rounded-md h-4/5 py-2 my-auto"
                                 style={{ width: "50px" }}
                               />
                               <div className="flex flex-col mx-2">
@@ -1005,7 +1087,7 @@ const UploadPhoto = () => {
                                 onChange={(event) =>
                                   handleHeightChange(event, data.id)
                                 }
-                                className="px-2 border rounded-md"
+                                className="px-2 border rounded-md h-4/5 py-2 my-auto"
                                 style={{ width: "50px" }}
                               />
                               <div className="flex flex-col mx-2">
@@ -1140,7 +1222,7 @@ const UploadPhoto = () => {
                   <div className="flex ">
                     <button
                       onClick={() => {
-                        handleSave();
+                        // handleSave();
                       }}
                       className="px-4 py-2 ml-2 bg-blue-500 text-white rounded-l-md"
                     >
