@@ -25,18 +25,24 @@ router.route('/').get(async (req, res) => {
 
 router.route('/').post(async (req, res) => {
   try {
-    const { name,  photo } = req.body;
+    const { name, photo, konvaJSON, draggableData } = req.body;
     const photoUrl = await cloudinary.uploader.upload(photo);
-
+  
     const newPost = await Post.create({
       name,
       photo: photoUrl.url,
+      konvaJSON,
+      draggableData,
     });
-
+  
     res.status(200).json({ success: true, data: newPost });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Unable to create a post, please try again' });
+    res.status(500).json({
+      success: false,
+      message: 'Unable to create a post, please try again',
+    });
   }
+  
 });
 
 export default router;
