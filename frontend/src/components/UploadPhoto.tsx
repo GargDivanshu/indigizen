@@ -224,111 +224,104 @@ const UploadPhoto = () => {
   /***************************************************************
    * Name: handleDownloadPDF
    ***************************************************************/
-  const generatePDF = async () => {
-    try {
-      // Create a new PDF document
-      const pdfDoc = await PDFDocument.create();
+ const generatePDF = async () => {
+  try {
+    const stage = stageRef.current;
+    const dataURL = stage.toDataURL();
+    const konvaJSON = stage.toJSON();
+    const containerElements = Array.from(
+      containerRef.current.children
+    ) as HTMLElement[];
 
-      // Add a new page to the document
-      const page = pdfDoc.addPage();
+    // Get the dimensions of the Konva stage
+    const stageWidth = stage.width();
+    const stageHeight = stage.height();
 
-      // convert the image into an arrayBuffer
-      const konvaCanvas = imageRef.current.toCanvas({ pixelRatio: 3 });
-      const konvaDataUrl = konvaCanvas.toDataURL("image/jpeg", 1.0);
-      const konvaBlob = await fetch(konvaDataUrl).then((response) =>
-        response.blob()
-      );
-      const konvaArrayBuffer = await konvaBlob.arrayBuffer();
+    // Create a new PDF document
+    const { PDFDocument, rgb } = require("pdf-lib");
+    const pdfDoc = await PDFDocument.create();
 
-      // embed the image into pdf
-      const konvaImage = await pdfDoc.embedJpg(konvaArrayBuffer);
+    // Add a new page
+    const page = pdfDoc.addPage();
 
-      // Calculate the scaling factors to fit the image to the page
-      const { width: pageWidth, height: pageHeight } = page.getSize();
-      const imageWidth = konvaImage.width;
-      const imageHeight = konvaImage.height;
-      const isLandscape = imageWidth > imageHeight;
+    // Load the image data as a PDF image
+    const image = await pdfDoc.embedPng(dataURL);
 
-      const scaleFactor = Math.min(
-        pageWidth / imageWidth,
-        pageHeight / imageHeight
-      );
-      const scaledWidth = imageWidth * scaleFactor;
-      const scaledHeight = imageHeight * scaleFactor;
+    // Draw the image on the PDF page
+    const { width, height } = image.scale(1);
+    page.drawImage(image, {
+      x: 0,
+      y: page.getHeight() - height,
+      stageWidth,
+      stageHeight,
+    });
 
-      // Rotate the PDF page if the image is in landscape orientation
-      if (isLandscape) {
-        page.setRotation(degrees(90));
-        page.setSize(pageHeight, pageWidth);
-      }
+    // Set the font and font size
+    const font = await pdfDoc.embedFont("Helvetica");
+    const fontSize = 12;
 
-      // Draw the Konva image on the PDF page
-      page.drawImage(konvaImage, {
-        x: 0,
-        y: 0,
-        width: scaledWidth,
-        height: scaledHeight,
-      });
+    // Draw the draggable data on the PDF page
+    containerElements.forEach((element) => {
+      const value = element.querySelector("span")?.textContent || "";
+      const positionX = parseInt(element.style.left);
+      const positionY = parseInt(element.style.top);
+      // const textHeight = parseInt(element.style.height);
 
-      //set the font for the text
-      const font = StandardFonts.Helvetica;
-      const textSize = 16;
+      console.log({ value, positionX, positionY})
 
-      console.log(
-        { imageWidth },
-        { imageHeight },
-        { pageWidth },
-        { pageHeight },
-        "scaleFactor =",
-        scaleFactor
-      );
-
-      // Add the text elements to PDF, scale X and Y and also adjust Y offset
-      for (const data of draggableData) {
-        const { value, position } = data;
-
-        //y in drawText expects the offset to be from lower left corner and
-        //draggable data has coordinates from upper left corner
-        const scaledPosition = {
-          x: position.x,
-          y: pageHeight + data.height * 2 - position.y,
-        };
-
-        console.log({ scaledPosition }, { data });
+      if (!isNaN(positionX)) {
+        // Check if positionX, positionY, and textHeight are NaN
         page.drawText(value, {
-          x: scaledPosition.x,
-          y: scaledPosition.y,
-          size: textSize,
-          // font,
+          x: positionX,
+          y: page.getHeight() - (positionY),
+          font,
+          size: fontSize,
           color: rgb(0, 0, 0),
         });
       }
+    });
 
-      // Serialize the PDF document
-      const pdfBytes = await pdfDoc.save();
-      return pdfBytes;
-    } catch (error) {
-      console.log("PDF generation failed:", error);
-    }
-  }; // end of generatePDF
+    // Save the PDF document as a Uint8Array
+    const pdfBytes = await pdfDoc.save();
+
+    // Create a blob from the PDF bytes
+    const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+
+    // Download the PDF file
+    const downloadLink = document.createElement("a");
+    downloadLink.href = URL.createObjectURL(pdfBlob);
+    downloadLink.download = "generated_pdf.pdf";
+    downloadLink.click();
+
+    console.log("PDF generated and downloaded successfully");
+  } catch (error) {
+    console.log(error);
+    toast({
+      title: "Error",
+      description: error.message,
+    });
+  }
+};
+
+  // end of generatePDF
 
   /***************************************************************
    * Name: handleDownloadPDF
    ***************************************************************/
-  const handleDownloadPDF = async () => {
-    const pdfBytes = await generatePDF();
+  // const handleDownloadPDF = async () => {
+  //   const pdfBytes = await generatePDF();
 
-    // Convert the PDF bytes to a Blob
-    const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+  //   // Convert the PDF bytes to a Blob
+  //   const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
 
-    // Create a download link
-    const downloadLink = document.createElement("a");
-    downloadLink.href = URL.createObjectURL(pdfBlob);
-    downloadLink.download = "certificate.pdf";
+  //   // Create a download link
+  //   const downloadLink = document.createElement("a");
+  //   downloadLink.href = URL.createObjectURL(pdfBlob);
+  //   downloadLink.download = "certificate.pdf";
 
-    // Trigger the download
-    downloadLink.click();
-  };
+  //   // Trigger the download
+  //   downloadLink.click();
+  // };
 
   /***************************************************************
    * Name: getCurrentDate
@@ -407,7 +400,7 @@ const UploadPhoto = () => {
    * Name: handleMouseDown
    *******************************************************************/
   const handleMouseDown = (event, id) => {
-    if (event.type !== "touchstart") {
+    if (event.button !== 0 && event.type !== "touchstart") {
       return;
     }
 
@@ -478,6 +471,7 @@ const UploadPhoto = () => {
           console.log("Dragging, clientX =", clientX, "clientY =", clientY);
           const offsetX = clientX - data.dragStartPosition.x;
           const offsetY = clientY - data.dragStartPosition.y;
+          console.log({ offsetX }, { offsetY }, "this is handleMouseMove");
 
           return {
             ...data,
@@ -650,7 +644,7 @@ const UploadPhoto = () => {
         compositeContext.fillText(
           value,
           positionX + offset.x,
-          stageHeight - (positionY + offset.y)
+          positionY + offset.y
         );
       });
 
@@ -672,11 +666,12 @@ const UploadPhoto = () => {
         data
       );
       console.log(response.data.data[1]);
+      const { data: { post, photoUrl } } = response;
 
       console.log("saved");
       toast({
         title: "Saved",
-        description: "Your composite image and Konva data have been saved",
+        description: "Your composite image and Konva data have been saved" + photoUrl + " " + post,
       });
     } catch (error) {
       console.log(error);
@@ -726,9 +721,8 @@ const UploadPhoto = () => {
                       />
                     </Group>
                   </Layer>
-                </Stage>
 
-                {draggableData.map((data) => (
+                  {draggableData.map((data) => (
                   <div
                     key={data.id}
                     style={{
@@ -783,6 +777,9 @@ const UploadPhoto = () => {
                     }) : null} */}
                   </div>
                 ))}
+                </Stage>
+
+               
               </div>
             ) : (
               <div
@@ -1181,7 +1178,7 @@ const UploadPhoto = () => {
                       <DropdownMenuContent>
                         <DropdownMenuLabel>Save as</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={handleDownloadPDF}>
+                        <DropdownMenuItem onClick={generatePDF}>
                           PDF{" "}
                         </DropdownMenuItem>
                         {/* <DropdownMenuItem>Pdf</DropdownMenuItem> */}
