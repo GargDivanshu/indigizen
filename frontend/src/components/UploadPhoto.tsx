@@ -778,7 +778,7 @@ const UploadPhoto = () => {
       containerElements.forEach((element) => {
         const value = element.querySelector("span")?.textContent || "";
         const positionX = parseInt(element.style.left);
-        const positionY = parseInt(element.style.bottom);
+        const positionY = parseInt(element.style.top);
 
         compositeContext.font = `${element.style.fontSize}px Arial`;
         compositeContext.fillStyle = "black";
@@ -870,7 +870,7 @@ const UploadPhoto = () => {
                     key={data.id}
                     style={{
                       position: "absolute",
-                      bottom: `${data.position.y}px`,
+                      top: `${data.position.y}px`,
                       left: `${data.position.x}px`,
                       userSelect: "none",
                       zIndex: data.isDragging ? 2 : 1,
