@@ -7,7 +7,14 @@ import { AiOutlineDelete } from "react-icons/ai";
 import { LuClipboardSignature } from "react-icons/lu";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import { Stage, Layer, Image as KonvaImage, Group, Text } from "react-konva";
+import {
+  Stage,
+  Layer,
+  Image as KonvaImage,
+  Group,
+  Text,
+  Rect,
+} from "react-konva";
 import axios from "axios";
 import { saveAs } from "file-saver";
 import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
@@ -91,6 +98,7 @@ const UploadPhoto = () => {
   });
   const imageRef = useRef(null);
   const stageRef = useRef(null);
+  const draggableDataRef = useRef([]);
   const [draggableData, setDraggableData] = useState<DraggableItem[]>([
     {
       id: "title",
@@ -176,6 +184,27 @@ const UploadPhoto = () => {
   };
 
   useEffect(() => {
+    // Update the clip area whenever the window is resized
+    const handleResize = () => {
+      if (stageRef.current && imageRef.current) {
+        const imageWidth = imageRef.current.width();
+        const imageHeight = imageRef.current.height();
+        const visibleArea = {
+          x: imageRef.current.x(),
+          y: imageRef.current.y(),
+          width: imageWidth,
+          height: imageHeight,
+        };
+        stageRef.current.clip(visibleArea);
+        stageRef.current.batchDraw();
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
     if (previewImage && imageRef.current) {
       const img = new Image();
       img.src = previewImage;
@@ -224,84 +253,84 @@ const UploadPhoto = () => {
   /***************************************************************
    * Name: handleDownloadPDF
    ***************************************************************/
- const generatePDF = async () => {
-  try {
-    const stage = stageRef.current;
-    const dataURL = stage.toDataURL();
-    const konvaJSON = stage.toJSON();
-    const containerElements = Array.from(
-      containerRef.current.children
-    ) as HTMLElement[];
+  const generatePDF = async () => {
+    try {
+      const stage = stageRef.current;
+      const dataURL = stage.toDataURL();
+      const konvaJSON = stage.toJSON();
+      const containerElements = Array.from(
+        containerRef.current.children
+      ) as HTMLElement[];
 
-    // Get the dimensions of the Konva stage
-    const stageWidth = stage.width();
-    const stageHeight = stage.height();
+      // Get the dimensions of the Konva stage
+      const stageWidth = stage.width();
+      const stageHeight = stage.height();
 
-    // Create a new PDF document
-    const { PDFDocument, rgb } = require("pdf-lib");
-    const pdfDoc = await PDFDocument.create();
+      // Create a new PDF document
+      const { PDFDocument, rgb } = require("pdf-lib");
+      const pdfDoc = await PDFDocument.create();
 
-    // Add a new page
-    const page = pdfDoc.addPage();
+      // Add a new page
+      const page = pdfDoc.addPage();
 
-    // Load the image data as a PDF image
-    const image = await pdfDoc.embedPng(dataURL);
+      // Load the image data as a PDF image
+      const image = await pdfDoc.embedPng(dataURL);
 
-    // Draw the image on the PDF page
-    const { width, height } = image.scale(1);
-    page.drawImage(image, {
-      x: 0,
-      y: page.getHeight() - height,
-      stageWidth,
-      stageHeight,
-    });
+      // Draw the image on the PDF page
+      const { width, height } = image.scale(1);
+      page.drawImage(image, {
+        x: 0,
+        y: page.getHeight() - height,
+        stageWidth,
+        stageHeight,
+      });
 
-    // Set the font and font size
-    const font = await pdfDoc.embedFont("Helvetica");
-    const fontSize = 12;
+      // Set the font and font size
+      const font = await pdfDoc.embedFont("Helvetica");
+      const fontSize = 12;
 
-    // Draw the draggable data on the PDF page
-    containerElements.forEach((element) => {
-      const value = element.querySelector("span")?.textContent || "";
-      const positionX = parseInt(element.style.left);
-      const positionY = parseInt(element.style.top);
-      // const textHeight = parseInt(element.style.height);
+      // Draw the draggable data on the PDF page
+      containerElements.forEach((element) => {
+        const value = element.querySelector("span")?.textContent || "";
+        const positionX = parseInt(element.style.left);
+        const positionY = parseInt(element.style.top);
+        // const textHeight = parseInt(element.style.height);
 
-      console.log({ value, positionX, positionY})
+        console.log({ value, positionX, positionY });
 
-      if (!isNaN(positionX)) {
-        // Check if positionX, positionY, and textHeight are NaN
-        page.drawText(value, {
-          x: positionX,
-          y: page.getHeight() - (positionY),
-          font,
-          size: fontSize,
-          color: rgb(0, 0, 0),
-        });
-      }
-    });
+        if (!isNaN(positionX)) {
+          // Check if positionX, positionY, and textHeight are NaN
+          page.drawText(value, {
+            x: positionX,
+            y: page.getHeight() - positionY,
+            font,
+            size: fontSize,
+            color: rgb(0, 0, 0),
+          });
+        }
+      });
 
-    // Save the PDF document as a Uint8Array
-    const pdfBytes = await pdfDoc.save();
+      // Save the PDF document as a Uint8Array
+      const pdfBytes = await pdfDoc.save();
 
-    // Create a blob from the PDF bytes
-    const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+      // Create a blob from the PDF bytes
+      const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
 
-    // Download the PDF file
-    const downloadLink = document.createElement("a");
-    downloadLink.href = URL.createObjectURL(pdfBlob);
-    downloadLink.download = "generated_pdf.pdf";
-    downloadLink.click();
+      // Download the PDF file
+      const downloadLink = document.createElement("a");
+      downloadLink.href = URL.createObjectURL(pdfBlob);
+      downloadLink.download = "generated_pdf.pdf";
+      downloadLink.click();
 
-    console.log("PDF generated and downloaded successfully");
-  } catch (error) {
-    console.log(error);
-    toast({
-      title: "Error",
-      description: error.message,
-    });
-  }
-};
+      console.log("PDF generated and downloaded successfully");
+    } catch (error) {
+      console.log(error);
+      toast({
+        title: "Error",
+        description: error.message,
+      });
+    }
+  };
 
   // end of generatePDF
 
@@ -612,40 +641,73 @@ const UploadPhoto = () => {
    *******************************************************************/
   const handleSave = async () => {
     try {
-      const stage = stageRef.current;
+      const stage = stageRef.current.getStage();
       const dataURL = stage.toDataURL();
       const konvaJSON = stage.toJSON();
-      const containerElements = Array.from(
-        containerRef.current.children
-      ) as HTMLElement[];
 
-      // Get the dimensions of the Konva stage
+      // Calculate the scaling factor to maintain aspect ratio
       const stageWidth = stage.width();
       const stageHeight = stage.height();
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+      const scaleX = windowWidth / stageWidth;
+      const scaleY = windowHeight / stageHeight;
+      const scale = Math.min(scaleX, scaleY);
+
+      // Calculate the composite canvas dimensions based on the scaled size
+      const compositeCanvasWidth = stageWidth * scale;
+      const compositeCanvasHeight = stageHeight * scale;
 
       // Create a new canvas element to composite the image and draggable data
       const compositeCanvas = document.createElement("canvas");
-      compositeCanvas.width = stageWidth;
-      compositeCanvas.height = stageHeight;
+      compositeCanvas.width = compositeCanvasWidth;
+      compositeCanvas.height = compositeCanvasHeight;
       const compositeContext = compositeCanvas.getContext("2d");
+
+      // Calculate the visible area of the stage based on the image dimensions
+      const imageWidth = imageRef.current.width();
+      const imageHeight = imageRef.current.height();
+      const visibleArea = {
+        x: imageRef.current.x(),
+        y: imageRef.current.y(),
+        width: imageWidth,
+        height: imageHeight,
+      };
+
+      // Set the visible area as the clip property of the stage
+      stage.clip(visibleArea);
 
       // Draw the image on the composite canvas
       const image = await loadImage(dataURL);
-      compositeContext.drawImage(image, 0, 0, stageWidth, stageHeight);
+      compositeContext.drawImage(
+        image,
+        0,
+        0,
+        stageWidth,
+        stageHeight,
+        0,
+        0,
+        compositeCanvasWidth,
+        compositeCanvasHeight
+      );
 
       // Draw the draggable data text on the composite canvas
-      containerElements.forEach((element) => {
-        const value = element.querySelector("span")?.textContent || "";
-        const positionX = parseInt(element.style.left);
-        const positionY = parseInt(element.style.top);
+      draggableData.forEach((data) => {
+        const { position, value, width, height, textSize, textColor } = data;
+        const x = position.x * scale;
+        const y = position.y * scale;
+        const rectWidth = width * scale;
+        const rectHeight = height * scale;
+        const fontSize = textSize * scale;
 
-        compositeContext.font = `${element.style.fontSize}px Arial`;
-        compositeContext.fillStyle = "black";
-        compositeContext.fillText(
-          value,
-          positionX + offset.x,
-          positionY + offset.y
-        );
+        // Fill the rectangle
+        compositeContext.fillStyle = "#000000"; // Set the rectangle color to black
+        compositeContext.fillRect(x, y, rectWidth, rectHeight);
+
+        // Fill the text with the provided textColor value
+        compositeContext.fillStyle = `#${textColor}`; // Set the font color
+        compositeContext.font = `${fontSize}px Arial`;
+        compositeContext.fillText(value, x, y + fontSize);
       });
 
       // Generate the composite image data URL
@@ -665,16 +727,61 @@ const UploadPhoto = () => {
         "http://localhost:8080/api/v1/post",
         data
       );
-      console.log(response.data.data[1]);
-      const { data: { post, photoUrl } } = response;
+      const {
+        data: { post, photoUrl },
+      } = response;
 
       console.log("saved");
       toast({
         title: "Saved",
-        description: "Your composite image and Konva data have been saved" + photoUrl + " " + post,
+        description:
+          "Your composite image and Konva data have been saved" +
+          photoUrl +
+          " " +
+          post,
       });
     } catch (error) {
       console.log(error);
+      toast({
+        title: "Error",
+        description: error,
+      });
+    }
+  };
+
+  const handleDragStart = (e, id) => {
+    const draggableData = draggableDataRef.current.find(
+      (data) => data.id === id
+    );
+    if (draggableData) {
+      draggableData.isDragging = true;
+    }
+  };
+
+  const handleDragEnd = (e, id) => {
+    const draggableData = draggableDataRef.current.find(
+      (data) => data.id === id
+    );
+    if (draggableData) {
+      draggableData.isDragging = false;
+    }
+  };
+
+  const handleDragMove = (e, id) => {
+    const draggableDataIndex = draggableData.findIndex(
+      (data) => data.id === id
+    );
+    if (draggableDataIndex !== -1) {
+      const imageNode = imageRef.current;
+      const imagePosition = imageNode.getAbsolutePosition();
+
+      const draggableDataCopy = [...draggableData];
+      draggableDataCopy[draggableDataIndex].position = {
+        x: e.target.x() - imagePosition.x,
+        y: e.target.y() - imagePosition.y,
+      };
+
+      setDraggableData(draggableDataCopy);
     }
   };
 
@@ -700,86 +807,44 @@ const UploadPhoto = () => {
         <div className="relative h-full grid grid-cols-3 justify-around">
           <div className="col-span-2 h-screen">
             {previewImage ? (
-              <div
-                id="container"
-                className={`mx-auto overflow-hidden h-[100%] w-[100%] relative`}
-                ref={containerRef}
-              >
+              <div>
                 <Stage
-                  className="h-[100%] w-[100%]"
                   width={canvas_dimensions.x}
                   height={canvas_dimensions.y}
                   ref={stageRef}
+                  className="border-8 border-red-600"
                 >
                   <Layer>
-                    <Group x={offset.x} y={offset.y}>
-                      <KonvaImage
-                        ref={imageRef}
-                        image={image}
-                        width={newImageDimensions.width}
-                        height={newImageDimensions.height}
-                      />
-                    </Group>
-                  </Layer>
-
-                  {draggableData.map((data) => (
-                  <div
-                    key={data.id}
-                    style={{
-                      position: "absolute",
-                      top: `${data.position.y}px`,
-                      left: `${data.position.x}px`,
-                      userSelect: "none",
-                      zIndex: data.isDragging ? 2 : 1,
-                      cursor: data.isDragging ? "grabbing" : "grab",
-                    }}
-                    onMouseDown={(event) => handleMouseDown(event, data.id)}
-                    onMouseUp={(event) => handleMouseUp(event, data.id)}
-                    onMouseMove={(event) => handleMouseMove(event, data.id)}
-                    onTouchStart={(event) => handleMouseDown(event, data.id)}
-                    onTouchEnd={(event) => handleMouseUp(event, data.id)}
-                    onTouchMove={(event) => handleMouseMove(event, data.id)}
-                  >
-                    <div
-                      className={`select-none `}
-                      style={{
-                        margin: 0,
-                        cursor: "move",
-                        color: `#${data.textColor}`,
-                        textAlign: data.isCentered ? "center" : undefined,
-                        background: "rgba(0, 0, 0, 0.5)",
-                        width: `${data.width}px`,
-                        height: `${data.height}px`,
-                        padding: "4px 8px",
-                        border: "none",
-                        fontSize: `${data.textSize}px`,
-                        display: "table",
-                      }}
-                    >
-                      <span className="table-cell align-middle text-center my-auto">
-                        {data.value}
-                      </span>
-                    </div>
-                    {/* {imageData ? imageData.map(()=> {
-                      return (
-                        <img
-                          src={imageData.image}
-                          alt="Signature"
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "contain",
-                            pointerEvents: "none",
-                          }}
+                    <KonvaImage
+                      image={image}
+                      width={newImageDimensions.width}
+                      height={newImageDimensions.height}
+                      ref={imageRef}
+                    />
+                    {draggableData.map((data) => (
+                      <Group
+                        key={data.id}
+                        x={data.position.x}
+                        y={data.position.y}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, data.id)}
+                        onDragEnd={(e) => handleDragEnd(e, data.id)}
+                        onDragMove={(e) => handleDragMove(e, data.id)}
+                      >
+                        <Rect
+                          width={data.width}
+                          height={data.height}
+                          fill={`rgba(0, 0, 0, 0.5)`}
                         />
-                      )
-
-                    }) : null} */}
-                  </div>
-                ))}
+                        <Text
+                          text={data.value}
+                          fill={`#${data.textColor}`}
+                          fontSize={data.textSize}
+                        />
+                      </Group>
+                    ))}
+                  </Layer>
                 </Stage>
-
-               
               </div>
             ) : (
               <div

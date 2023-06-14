@@ -26,8 +26,25 @@ router.route('/').get(async (req, res) => {
 router.route('/').post(async (req, res) => {
   try {
     const { name, photo, konvaJSON, draggableData } = req.body;
+  
+    // Upload the original image to Cloudinary
     const photoUrl = await cloudinary.uploader.upload(photo);
   
+    // Get the public ID of the uploaded image
+    const publicId = photoUrl.public_id;
+  
+    // Generate a URL with the auto_crop transformation applied
+    const croppedImageUrl = cloudinary.url(publicId, {
+      transformation: [
+        { width: "auto", height: "auto", crop: "fill" },
+        { crop: "crop", gravity: "auto" },
+      ],
+    });
+  
+    // Update the photo URL to the cropped image URL
+    photoUrl.url = croppedImageUrl;
+  
+    // Save the new post with the cropped image URL
     const newPost = await Post.create({
       name,
       photo: photoUrl.url,
@@ -35,14 +52,13 @@ router.route('/').post(async (req, res) => {
       draggableData,
     });
   
-    res.status(200).json({ success: true, data: newPost });
+    res.status(200).json({ success: true, data: newPost, photoUrl: photoUrl.url });
   } catch (err) {
     res.status(500).json({
       success: false,
       message: 'Unable to create a post, please try again',
     });
-  }
-  
+  }  
 });
 
 export default router;
