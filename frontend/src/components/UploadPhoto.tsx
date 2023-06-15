@@ -401,7 +401,7 @@ const UploadPhoto = () => {
         canvas_dimensions.y
       );
 
-      setNewImageDimensions({ width: newWidth, height: newHeight });
+      setNewImageDimensions({ width: Math.floor(newWidth), height: Math.floor(newHeight) });
       console.log(
         "New Image Dimensions:",
         newWidth,
@@ -719,6 +719,8 @@ const UploadPhoto = () => {
         photo: compositeDataURL,
         konvaJSON: konvaJSON,
         draggableData: draggableData,
+        width: newImageDimensions.width,
+        height: newImageDimensions.height,
       };
 
       console.log(data);
@@ -735,10 +737,8 @@ const UploadPhoto = () => {
       toast({
         title: "Saved",
         description:
-          "Your composite image and Konva data have been saved" +
-          photoUrl +
-          " " +
-          post,
+          
+          photoUrl 
       });
     } catch (error) {
       console.log(error);
