@@ -25,7 +25,10 @@ router.route('/').get(async (req, res) => {
 
 router.route('/').post(async (req, res) => {
   try {
-    const { name, photo, konvaJSON, draggableData } = req.body;
+    const { name, photo, konvaJSON, draggableData, width, height } = req.body;
+
+    console.log({width}, "width");
+    console.log({height}, "height");
   
     // Upload the original image to Cloudinary
     const photoUrl = await cloudinary.uploader.upload(photo);
@@ -36,7 +39,7 @@ router.route('/').post(async (req, res) => {
     // Generate a URL with the auto_crop transformation applied
     const croppedImageUrl = cloudinary.url(publicId, {
       transformation: [
-        { width: "auto", height: "auto", crop: "fill" },
+        { width: width, height: height, crop: "fill" },
         { crop: "crop", gravity: "auto" },
       ],
     });
