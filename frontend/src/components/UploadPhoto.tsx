@@ -17,7 +17,7 @@ import {
 } from "react-konva";
 import axios from "axios";
 import { saveAs } from "file-saver";
-import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, degrees, PDFPage } from "pdf-lib";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -255,20 +255,13 @@ const UploadPhoto = () => {
    ***************************************************************/
   const generatePDF = async () => {
     try {
+      // Create a new PDF document
+      const pdfDoc = await PDFDocument.create();
       const stage = stageRef.current;
       const dataURL = stage.toDataURL();
-      const konvaJSON = stage.toJSON();
       const containerElements = Array.from(
-        containerRef.current.children
+        stageRef.current.children
       ) as HTMLElement[];
-
-      // Get the dimensions of the Konva stage
-      const stageWidth = stage.width();
-      const stageHeight = stage.height();
-
-      // Create a new PDF document
-      const { PDFDocument, rgb } = require("pdf-lib");
-      const pdfDoc = await PDFDocument.create();
 
       // Add a new page
       const page = pdfDoc.addPage();
@@ -276,13 +269,25 @@ const UploadPhoto = () => {
       // Load the image data as a PDF image
       const image = await pdfDoc.embedPng(dataURL);
 
+      // Get the dimensions of the Konva stage
+      const stageWidth = stage.width();
+      const stageHeight = stage.height();
+
+      
+
+      // Calculate the scale factor to fit the image to the page width
+      const scale = page.getWidth() / newImageDimensions.width;
+
+      // Calculate the adjusted image dimensions
+      const adjustedWidth = stageWidth * scale;
+      const adjustedHeight = stageHeight * scale;
+
       // Draw the image on the PDF page
-      const { width, height } = image.scale(1);
       page.drawImage(image, {
         x: 0,
-        y: page.getHeight() - height,
-        stageWidth,
-        stageHeight,
+        y: page.getHeight() - adjustedHeight,
+        width: adjustedWidth,
+        height: adjustedHeight,
       });
 
       // Set the font and font size
@@ -291,22 +296,22 @@ const UploadPhoto = () => {
 
       // Draw the draggable data on the PDF page
       containerElements.forEach((element) => {
-        const value = element.querySelector("span")?.textContent || "";
-        const positionX = parseInt(element.style.left);
-        const positionY = parseInt(element.style.top);
-        // const textHeight = parseInt(element.style.height);
+        if (element instanceof HTMLElement) {
+          const value = element.querySelector("span")?.textContent || "";
+          const positionX = parseInt(element.style.left);
+          const positionY = parseInt(element.style.top);
 
-        console.log({ value, positionX, positionY });
+          console.log({ value, positionX, positionY });
 
-        if (!isNaN(positionX)) {
-          // Check if positionX, positionY, and textHeight are NaN
-          page.drawText(value, {
-            x: positionX,
-            y: page.getHeight() - positionY,
-            font,
-            size: fontSize,
-            color: rgb(0, 0, 0),
-          });
+          if (!isNaN(positionX)) {
+            // Check if positionX, positionY, and textHeight are NaN
+            page.drawText(value, {
+              x: positionX * scale,
+              y: page.getHeight() - positionY * scale,
+              font,
+              size: fontSize,
+            });
+          }
         }
       });
 
@@ -330,9 +335,7 @@ const UploadPhoto = () => {
         description: error.message,
       });
     }
-  };
-
-  // end of generatePDF
+  }; // end of generatePDF
 
   /***************************************************************
    * Name: handleDownloadPDF
@@ -401,7 +404,10 @@ const UploadPhoto = () => {
         canvas_dimensions.y
       );
 
-      setNewImageDimensions({ width: Math.floor(newWidth), height: Math.floor(newHeight) });
+      setNewImageDimensions({
+        width: Math.floor(newWidth),
+        height: Math.floor(newHeight),
+      });
       console.log(
         "New Image Dimensions:",
         newWidth,
@@ -736,9 +742,7 @@ const UploadPhoto = () => {
       console.log("saved");
       toast({
         title: "Saved",
-        description:
-          
-          photoUrl 
+        description: photoUrl,
       });
     } catch (error) {
       console.log(error);
