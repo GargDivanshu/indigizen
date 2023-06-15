@@ -250,6 +250,29 @@ const UploadPhoto = () => {
     };
   }, []);
 
+  const fitCanvas2Page = (canvasW, canvasH, pageW, pageH) => {
+    let newWidth = canvasW;
+    let newHeight = canvasH;
+
+    //find the constraining dimension.
+    const wDiff = pageW - canvasW;
+    const hDiff = pageH - canvasH;
+
+    if (wDiff < 0 && wDiff < hDiff) {
+      //width is the constraint.
+      newWidth = pageW;
+      newHeight = (pageW / canvasW) * canvasH;
+    }
+
+    if (hDiff < 0 && hDiff < wDiff) {
+      //height is the constraint.
+      newHeight = pageH;
+      newWidth = (pageH / canvasH) * canvasW;
+    }
+
+    return [newWidth, newHeight];
+  };
+
   /***************************************************************
    * Name: handleDownloadPDF
    ***************************************************************/
@@ -272,20 +295,40 @@ const UploadPhoto = () => {
       // Get the dimensions of the Konva stage
       const stageWidth = stage.width();
       const stageHeight = stage.height();
+      let pageHeight = page.getHeight();
+      let pageWidth = page.getWidth();
 
-      
+      let [finalWidth, finalHeight] = fitCanvas2Page(
+        stageWidth,
+        stageHeight,
+        pageWidth,
+        pageHeight
+      );
 
       // Calculate the scale factor to fit the image to the page width
-      const scale = page.getWidth() / newImageDimensions.width;
+      const scale_x = finalWidth / stageWidth;
+      const scale_y = finalHeight / stageHeight;
 
       // Calculate the adjusted image dimensions
-      const adjustedWidth = stageWidth * scale;
-      const adjustedHeight = stageHeight * scale;
+      const adjustedWidth = stageWidth * scale_x;
+      const adjustedHeight = stageHeight * scale_y;
+      console.log(
+        { stageWidth },
+        { stageHeight },
+        { pageWidth },
+        { pageHeight }
+      );
+      console.log(
+        { finalWidth },
+        { finalHeight },
+        { adjustedWidth },
+        { adjustedHeight }
+      );
 
       // Draw the image on the PDF page
       page.drawImage(image, {
         x: 0,
-        y: page.getHeight() - adjustedHeight,
+        y: pageHeight - adjustedHeight,
         width: adjustedWidth,
         height: adjustedHeight,
       });
@@ -295,25 +338,18 @@ const UploadPhoto = () => {
       const fontSize = 12;
 
       // Draw the draggable data on the PDF page
-      // containerElements.forEach((element) => {
-      //   if (element instanceof HTMLElement) {
-      //     const value = element.querySelector("span")?.textContent || "";
-      //     const positionX = parseInt(element.style.left);
-      //     const positionY = parseInt(element.style.top);
+      draggableData.forEach((element) => {
+        const positionX = element.position.x * scale_x;
+        const positionY = (element.position.y + element.height) * scale_y;
 
-      //     console.log({ value, positionX, positionY });
-
-      //     if (!isNaN(positionX)) {
-      //       // Check if positionX, positionY, and textHeight are NaN
-      //       page.drawText(value, {
-      //         x: positionX * scale,
-      //         y: page.getHeight() - positionY * scale,
-      //         font,
-      //         size: fontSize,
-      //       });
-      //     }
-      //   }
-      // });
+        console.log(element.value, positionX, positionY);
+        page.drawText(element.value, {
+          x: positionX,
+          y: pageHeight - positionY,
+          font,
+          size: fontSize,
+        });
+      });
 
       // Save the PDF document as a Uint8Array
       const pdfBytes = await pdfDoc.save();
@@ -430,7 +466,6 @@ const UploadPhoto = () => {
     });
     setDraggableData(updatedData);
   }; //end of handleFileInputChange
-  
 
   /*******************************************************************
    * Name: handleMouseDown
