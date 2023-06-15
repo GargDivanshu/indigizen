@@ -18,7 +18,8 @@ router.route('/').post(upload.single('file'), async (req, res) => {
     });
     const processedImageBuffer = await lanczosImage.toBuffer();
     const processedImageBase64 = processedImageBuffer.toString('base64');
-    res.send(processedImageBase64);
+    res.setHeader('Content-Type', 'image/jpeg');
+res.send(processedImageBuffer);
   } catch (error) {
     console.error('Error processing image:', error);
     res.status(500).send('Error processing image');

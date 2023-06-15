@@ -430,6 +430,7 @@ const UploadPhoto = () => {
     });
     setDraggableData(updatedData);
   }; //end of handleFileInputChange
+  
 
   /*******************************************************************
    * Name: handleMouseDown
