@@ -266,6 +266,10 @@ const UploadPhoto = () => {
       // Add a new page
       const page = pdfDoc.addPage();
 
+      const pageHeight = page.getHeight();
+      const pageWidth = page.getWidth();
+      console.log(pageHeight, pageWidth, "page height and width");
+
       // Load the image data as a PDF image
       const image = await pdfDoc.embedPng(dataURL);
 
@@ -411,7 +415,7 @@ const UploadPhoto = () => {
       console.log(
         "New Image Dimensions:",
         newWidth,
-        newHeight + "this is handleInput "
+        newHeight + " this is handleInput "
       );
     }; //end of image onload
 
