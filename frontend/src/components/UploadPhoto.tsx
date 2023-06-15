@@ -295,25 +295,25 @@ const UploadPhoto = () => {
       const fontSize = 12;
 
       // Draw the draggable data on the PDF page
-      containerElements.forEach((element) => {
-        if (element instanceof HTMLElement) {
-          const value = element.querySelector("span")?.textContent || "";
-          const positionX = parseInt(element.style.left);
-          const positionY = parseInt(element.style.top);
+      // containerElements.forEach((element) => {
+      //   if (element instanceof HTMLElement) {
+      //     const value = element.querySelector("span")?.textContent || "";
+      //     const positionX = parseInt(element.style.left);
+      //     const positionY = parseInt(element.style.top);
 
-          console.log({ value, positionX, positionY });
+      //     console.log({ value, positionX, positionY });
 
-          if (!isNaN(positionX)) {
-            // Check if positionX, positionY, and textHeight are NaN
-            page.drawText(value, {
-              x: positionX * scale,
-              y: page.getHeight() - positionY * scale,
-              font,
-              size: fontSize,
-            });
-          }
-        }
-      });
+      //     if (!isNaN(positionX)) {
+      //       // Check if positionX, positionY, and textHeight are NaN
+      //       page.drawText(value, {
+      //         x: positionX * scale,
+      //         y: page.getHeight() - positionY * scale,
+      //         font,
+      //         size: fontSize,
+      //       });
+      //     }
+      //   }
+      // });
 
       // Save the PDF document as a Uint8Array
       const pdfBytes = await pdfDoc.save();
