@@ -259,9 +259,9 @@ const UploadPhoto = () => {
       const pdfDoc = await PDFDocument.create();
       const stage = stageRef.current;
       const dataURL = stage.toDataURL();
-      const containerElements = Array.from(
-        stageRef.current.children
-      ) as HTMLElement[];
+      // const containerElements = Array.from(
+      //   stageRef.current.children
+      // ) as HTMLElement[];
 
       // Add a new page
       const page = pdfDoc.addPage();
