@@ -6,6 +6,8 @@ import { BiReset, BiColorFill } from "react-icons/bi";
 import { AiOutlineDelete } from "react-icons/ai";
 import { LuClipboardSignature } from "react-icons/lu";
 import jsPDF from "jspdf";
+import html2pdf from "html2pdf.js";
+
 import html2canvas from "html2canvas";
 import {
   Stage,
@@ -99,6 +101,8 @@ const UploadPhoto = () => {
   const imageRef = useRef(null);
   const stageRef = useRef(null);
   const draggableDataRef = useRef([]);
+
+  const [color, setColor] = useState("#000000");
   const [draggableData, setDraggableData] = useState<DraggableItem[]>([
     {
       id: "title",
@@ -338,18 +342,34 @@ const UploadPhoto = () => {
       const fontSize = 12;
 
       // Draw the draggable data on the PDF page
-      draggableData.forEach((element) => {
-        const positionX = element.position.x * scale_x;
-        const positionY = (element.position.y + element.height) * scale_y;
+      // const draggableDataOffset = [];
+      // draggableData.forEach((element) => {
+      //   const positionX = element.position.x * scale_x;
+      //   const positionY = (element.position.y + element.height) * scale_y;
 
-        console.log(element.value, positionX, positionY);
-        page.drawText(element.value, {
-          x: positionX,
-          y: pageHeight - positionY,
-          font,
-          size: fontSize,
-        });
-      });
+      //   console.log(element.value, positionX, positionY);
+      //   page.drawText(element.value, {
+      //     x: positionX,
+      //     y: pageHeight - positionY,
+      //     font,
+      //     size: fontSize,
+      //   });
+
+      //   draggableDataOffset.push({ x: positionX, y: pageHeight - positionY });
+      // });
+
+      // console.log(draggableDataOffset, "draggableDataOffset");
+      // const data = await axios.post(
+      //   "http://localhost:8080/api/v1/offset",
+      //   draggableDataOffset
+      // );
+      // const {
+      //   data: { newPost },
+      // } = data;
+
+      // console.log(data, "newPost");
+
+      // console.log(data, "data");
 
       // Save the PDF document as a Uint8Array
       const pdfBytes = await pdfDoc.save();
@@ -362,6 +382,21 @@ const UploadPhoto = () => {
       downloadLink.href = URL.createObjectURL(pdfBlob);
       downloadLink.download = "generated_pdf.pdf";
       downloadLink.click();
+      formData.append("file", pdfBlob, "document.pdf");
+      axios
+        .post("http://localhost:8080/api/v1/save", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        })
+        .then((response) => {
+          console.log(response.data.message);
+        })
+        .catch((error) => {
+          console.error("Error uploading PDF:", error);
+        });
+
+      // console.log(fileSave, "fileSave");
 
       console.log("PDF generated and downloaded successfully");
     } catch (error) {
@@ -399,15 +434,18 @@ const UploadPhoto = () => {
     const day = currentDate.getDate().toString().padStart(2, "0");
     const month = (currentDate.getMonth() + 1).toString().padStart(2, "0");
     const year = currentDate.getFullYear().toString().slice(-2);
-    return `${day}/${month}/${year}`;
+    return `${day}-${month}-${year}`;
   };
   /***************************************************************
    * Name: handleFileInputChange
    ***************************************************************/
+
+  const formData = new FormData();
+
   const handleFileInputChange = async (event) => {
     setSelectedFile((prev) => null);
     const file = event.target.files[0];
-
+    console.log(file, "file")
     if (!file) {
       return;
     }
@@ -470,93 +508,93 @@ const UploadPhoto = () => {
   /*******************************************************************
    * Name: handleMouseDown
    *******************************************************************/
-  const handleMouseDown = (event, id) => {
-    if (event.button !== 0 && event.type !== "touchstart") {
-      return;
-    }
+  // const handleMouseDown = (event, id) => {
+  //   if (event.button !== 0 && event.type !== "touchstart") {
+  //     return;
+  //   }
 
-    event.stopPropagation();
+  //   event.stopPropagation();
 
-    const clientX =
-      event.type === "touchstart" ? event.touches[0].clientX : event.clientX;
-    const clientY =
-      event.type === "touchstart" ? event.touches[0].clientY : event.clientY;
-    console.log("MouseDown:", clientX, clientY);
+  //   const clientX =
+  //     event.type === "touchstart" ? event.touches[0].clientX : event.clientX;
+  //   const clientY =
+  //     event.type === "touchstart" ? event.touches[0].clientY : event.clientY;
+  //   console.log("MouseDown:", clientX, clientY);
 
-    //update the element to set dragging flag and coordinates
-    setDraggableData((prev) => {
-      return prev.map((data) => {
-        if (data.id === id) {
-          return {
-            ...data,
-            isDragging: true,
-            dragStartPosition: { x: clientX, y: clientY },
-          };
-        }
-        return data;
-      });
-    });
-  };
+  //   //update the element to set dragging flag and coordinates
+  //   setDraggableData((prev) => {
+  //     return prev.map((data) => {
+  //       if (data.id === id) {
+  //         return {
+  //           ...data,
+  //           isDragging: true,
+  //           dragStartPosition: { x: clientX, y: clientY },
+  //         };
+  //       }
+  //       return data;
+  //     });
+  //   });
+  // };
 
   /*******************************************************************
    * Name: handleMouseUp
    *******************************************************************/
-  const handleMouseUp = (event, id) => {
-    if (event.button !== 0 && event.type !== "touchend") {
-      return;
-    }
-    event.stopPropagation();
-    console.log("MouseUp : id =", id);
+  // const handleMouseUp = (event, id) => {
+  //   if (event.button !== 0 && event.type !== "touchend") {
+  //     return;
+  //   }
+  //   event.stopPropagation();
+  //   console.log("MouseUp : id =", id);
 
-    //clear the dragging flag
-    setDraggableData((prev) => {
-      return prev.map((data) => {
-        if (data.id === id) {
-          return {
-            ...data,
-            isDragging: false,
-            dragStartPosition: { x: 0, y: 0 },
-          };
-        }
-        return data;
-      });
-    });
-  };
+  //   //clear the dragging flag
+  //   setDraggableData((prev) => {
+  //     return prev.map((data) => {
+  //       if (data.id === id) {
+  //         return {
+  //           ...data,
+  //           isDragging: false,
+  //           dragStartPosition: { x: 0, y: 0 },
+  //         };
+  //       }
+  //       return data;
+  //     });
+  //   });
+  // };
 
   /*******************************************************************
    * Name: handleMouseMove
    *******************************************************************/
-  const handleMouseMove = (event, id) => {
-    const boundingRect = containerRef.current.getBoundingClientRect();
-    console.log("Bounding rect:", boundingRect);
+  // const handleMouseMove = (event, id) => {
+  //   const boundingRect = containerRef.current.getBoundingClientRect();
+  //   console.log("Bounding rect:", boundingRect);
 
-    const clientX =
-      event.type === "touchmove" ? event.touches[0].clientX : event.clientX;
-    const clientY =
-      event.type === "touchmove" ? event.touches[0].clientY : event.clientY;
+  //   const clientX =
+  //     event.type === "touchmove" ? event.touches[0].clientX : event.clientX;
+  //   const clientY =
+  //     event.type === "touchmove" ? event.touches[0].clientY : event.clientY;
 
-    //update the element being dragged
-    setDraggableData((prev) => {
-      return prev.map((data) => {
-        if (data.id === id && data.isDragging) {
-          console.log("Dragging, clientX =", clientX, "clientY =", clientY);
-          const offsetX = clientX - data.dragStartPosition.x;
-          const offsetY = clientY - data.dragStartPosition.y;
-          console.log({ offsetX }, { offsetY }, "this is handleMouseMove");
+  //   //update the element being dragged
+  //   setDraggableData((prev) => {
+  //     return prev.map((data) => {
+  //       if (data.id === id && data.isDragging) {
+  //         console.log("Dragging, clientX =", clientX, "clientY =", clientY);
+  //         const offsetX = clientX - data.dragStartPosition.x;
+  //         const offsetY = clientY - data.dragStartPosition.y;
+  //         console.log({ offsetX }, { offsetY }, "this is handleMouseMove");
 
-          return {
-            ...data,
-            position: {
-              x: data.position.x + offsetX,
-              y: data.position.y + offsetY,
-            },
-            dragStartPosition: { x: clientX, y: clientY },
-          };
-        }
-        return data;
-      });
-    });
-  };
+  //         return {
+  //           ...data,
+  //           position: {
+  //             x: data.position.x + offsetX,
+  //             y: data.position.y + offsetY,
+  //           },
+  //           dragStartPosition: { x: clientX, y: clientY },
+  //         };
+  //       }
+  //       return data;
+  //     });
+  //   });
+  // };
 
   /*******************************************************************
    * Name: handleInputChange
@@ -700,7 +738,7 @@ const UploadPhoto = () => {
       const compositeCanvasWidth = stageWidth * scale;
       const compositeCanvasHeight = stageHeight * scale;
 
-      // Create a new canvas element to composite the image and draggable data
+      // Create a new canvas element to composite the image and draggable dataed
       const compositeCanvas = document.createElement("canvas");
       compositeCanvas.width = compositeCanvasWidth;
       compositeCanvas.height = compositeCanvasHeight;
@@ -743,22 +781,27 @@ const UploadPhoto = () => {
         const fontSize = textSize * scale;
 
         // Fill the rectangle
-        compositeContext.fillStyle = "#000000"; // Set the rectangle color to black
+        compositeContext.fillStyle = "rgba(0, 0, 0, 0)"; // Set the rectangle color to black
         compositeContext.fillRect(x, y, rectWidth, rectHeight);
 
         // Fill the text with the provided textColor value
-        compositeContext.fillStyle = `#${textColor}`; // Set the font color
+        compositeContext.fillStyle = `${textColor}`; // Set the font color
         compositeContext.font = `${fontSize}px Arial`;
         compositeContext.fillText(value, x, y + fontSize);
       });
 
       // Generate the composite image data URL
       const compositeDataURL = compositeCanvas.toDataURL();
+      const pdf = await PDFDocument.create();
+
+      const BlobPDF = pdf.embedPng(compositeDataURL);
+
+
 
       // Send the composite image data and other data to the server
       const data = {
         name: selectedFile?.name,
-        photo: compositeDataURL,
+        photo: BlobPDF,
         konvaJSON: konvaJSON,
         draggableData: draggableData,
         width: newImageDimensions.width,
@@ -780,6 +823,31 @@ const UploadPhoto = () => {
         title: "Saved",
         description: photoUrl,
       });
+      const date = getCurrentDate();
+
+      
+    const pdfDoc = await PDFDocument.create();
+    const blobPDF = pdfDoc.embedPng(compositeDataURL);
+ 
+
+    // req.body.title, req.body.schoolid, req.body.startDate, req.body.category, req.body.fileName
+      const newData = await fetch("https://0.0.0.0:8443/save-certificate", {
+        headers: {
+          "Content-Type": "application/json",
+        }, 
+        body: JSON.stringify({
+          fileName: selectedFile?.name,
+          photo: blobPDF,
+          schoolid: 1,
+          startDate: date,
+          title: selectedFile?.name.toUpperCase(),
+          category: "General",
+          knobs: JSON.stringify(draggableData)
+        })
+      });
+
+      console.log(newData);
+
     } catch (error) {
       console.log(error);
       toast({
@@ -825,6 +893,26 @@ const UploadPhoto = () => {
     }
   };
 
+  console.log(draggableData)
+
+  const handleColorChange = (newColor, itemId) => {
+    // Callback 1: Update color state using setColor
+    setColor(newColor);
+  
+    // Callback 2: Update draggableData state using setDraggableData
+    const updatedData = draggableData.map((item) => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          textColor: newColor,
+        };
+      }
+      return item;
+    });
+    setDraggableData(updatedData);
+  };
+  
+  
   return (
     <div className="relative bg-blank h-screen scrollbar-macos-style">
       <div className="w-full bg-panels py-[2px] border-b-[1px] border-border">
@@ -842,7 +930,15 @@ const UploadPhoto = () => {
           <BsUpload className="mr-2" />
           Upload File
         </label>
+        <div className="w-full bg-blue-800 px-4 text-white font-extralight text-xs">
+          Filename: <input 
+          type="text"
+          className="bg-transparent border-none outline-none w-11/12"
+          value={selectedFile?.name}
+          />
+        </div>
       </div>
+      
       <div className={`bg-blank h-full text-xs text-white`}>
         <div className="relative h-full grid grid-cols-3 justify-around">
           <div className="col-span-2 h-screen">
@@ -852,7 +948,7 @@ const UploadPhoto = () => {
                   width={canvas_dimensions.x}
                   height={canvas_dimensions.y}
                   ref={stageRef}
-                  className="border-8 border-red-600"
+                  className=""
                 >
                   <Layer>
                     <KonvaImage
@@ -874,11 +970,11 @@ const UploadPhoto = () => {
                         <Rect
                           width={data.width}
                           height={data.height}
-                          fill={`rgba(0, 0, 0, 0.5)`}
+                          fill={`rgba(0, 0, 0, 0)`}
                         />
                         <Text
                           text={data.value}
-                          fill={`#${data.textColor}`}
+                          fill={`${data.textColor}`}
                           fontSize={data.textSize}
                         />
                       </Group>
@@ -934,7 +1030,7 @@ const UploadPhoto = () => {
                       Add Field
                     </button>
 
-                    <TooltipProvider>
+                    {/* <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
@@ -998,7 +1094,7 @@ const UploadPhoto = () => {
                           <p>Square Canvas</p>
                         </TooltipContent>
                       </Tooltip>
-                    </TooltipProvider>
+                    </TooltipProvider> */}
 
                     <input
                       type="file"
@@ -1219,21 +1315,23 @@ const UploadPhoto = () => {
                                   <DialogTitle>Color Picker</DialogTitle>
                                 </DialogHeader>
                                 <HexColorPicker
-                                  color={data.textColor}
-                                  onChange={() => {
-                                    const updateData = draggableData.map(
-                                      (item) => {
-                                        if (item.id === data.id) {
-                                          return {
-                                            ...item,
-                                            textColor: data.textColor,
-                                          };
-                                        }
-                                        return item;
-                                      }
-                                    );
-                                    setDraggableData(updateData);
-                                  }}
+                                  color={color}
+                                  onChange={(newColor) => handleColorChange(newColor, data.id)}
+
+                                  // () => {
+                                  //   const updateData = draggableData.map(
+                                  //     (item) => {
+                                  //       if (item.id === data.id) {
+                                  //         return {
+                                  //           ...item,
+                                  //           textColor: data.textColor,
+                                  //         };
+                                  //       }
+                                  //       return item;
+                                  //     }
+                                  //   );
+                                  //   setDraggableData(updateData);
+                                  // }
                                 />
                                 ;
                                 {/* color={data.textColor} onChange={handleChange} */}
@@ -1313,78 +1411,7 @@ const UploadPhoto = () => {
                       Add Field
                     </button>
 
-                    {/* portrait mode btn */}
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
-                            <IoPhonePortraitOutline
-                              onClick={() => {
-                                setCanvasDimensions({
-                                  x: 400,
-                                  y: 600,
-                                });
-                              }}
-                              fontSize={15}
-                              className="cursor-help text-center mx-auto hover:text-blue-600"
-                            />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Portrait Canvas</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    {/* landscape mode btn */}
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
-                            <IoPhoneLandscapeOutline
-                              onClick={() => {
-                                setCanvasDimensions({
-                                  x: 600,
-                                  y: 400,
-                                });
-                              }}
-                              fontSize={15}
-                              className="text-center mx-auto hover:text-blue-600"
-                            />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Landscape Canvas</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    {/* square mode btn */}
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
-                            <IoSquareOutline
-                              onClick={() => {
-                                setCanvasDimensions({
-                                  x: 500,
-                                  y: 500,
-                                });
-                              }}
-                              fontSize={15}
-                              className="text-center mx-auto hover:text-blue-600"
-                            />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Square Canvas</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
+                                 
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
