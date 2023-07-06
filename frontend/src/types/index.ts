@@ -25,3 +25,9 @@ export interface ImageDataProps {
     textSize: number;
     image: HTMLImageElement | null;
 }  
+
+
+export interface IImage extends HTMLImageElement {
+  width: number;
+  height: number;
+}

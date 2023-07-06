@@ -5,21 +5,15 @@ import { RiImageAddFill } from "react-icons/ri";
 import { BiReset, BiColorFill } from "react-icons/bi";
 import { AiOutlineDelete } from "react-icons/ai";
 import { LuClipboardSignature } from "react-icons/lu";
-import jsPDF from "jspdf";
-import html2pdf from "html2pdf.js";
-
-import html2canvas from "html2canvas";
 import {
   Stage,
   Layer,
   Image as KonvaImage,
   Group,
   Text,
-  Rect,
 } from "react-konva";
 import axios from "axios";
-import { saveAs } from "file-saver";
-import { PDFDocument, StandardFonts, rgb, degrees, PDFPage } from "pdf-lib";
+import { PDFDocument,  } from "pdf-lib";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,29 +22,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import {
-  IoPhonePortraitOutline,
-  IoPhoneLandscapeOutline,
-  IoSquareOutline,
-} from "react-icons/io5";
+
 
 import { DraggableItem, ImageDataProps } from "../types";
 import { fileSchema, dimensionSchema } from "./../validator/index";
 import { useToast } from "./ui/use-toast";
-import ColorPicker from "./ColorPicker";
+
 import { HexColorPicker } from "react-colorful";
-import {
-  ColorResult,
-  GooglePicker,
-  SketchPicker,
-} from "@hello-pangea/color-picker";
+
 
 import { Toggle } from "./ui/toggle";
 
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -66,23 +51,18 @@ import {
 import {
   Table,
   TableBody,
-  // TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "./ui/table";
-import { text } from "stream/consumers";
 
-interface IImage extends HTMLImageElement {
-  width: number;
-  height: number;
-}
+
+import { IImage } from './../types/index';
 
 const UploadPhoto = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
-  const [finalImage, setFinalImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [originalImageDimensions, setOriginalImageDimensions] = useState({
     width: 0,
@@ -101,6 +81,7 @@ const UploadPhoto = () => {
   const imageRef = useRef(null);
   const stageRef = useRef(null);
   const draggableDataRef = useRef([]);
+  const groupRef = useRef(null);
 
   const [color, setColor] = useState("#000000");
   const [draggableData, setDraggableData] = useState<DraggableItem[]>([
@@ -113,7 +94,7 @@ const UploadPhoto = () => {
       width: 100,
       height: 20,
       textColor: "FFFFFF",
-      textSize: 18,
+      textSize: 20,
       isCentered: false,
     },
     {
@@ -125,7 +106,7 @@ const UploadPhoto = () => {
       width: 100,
       height: 20,
       textColor: "FFFFFF",
-      textSize: 18,
+      textSize: 20,
       isCentered: false,
     },
     {
@@ -137,26 +118,24 @@ const UploadPhoto = () => {
       width: 100,
       height: 20,
       textColor: "FFFFFF",
-      textSize: 18,
+      textSize: 20,
       isCentered: false,
     },
   ]);
+
+  const formData = new FormData();
 
   const [imageData, setImageData] = useState<ImageDataProps[]>([]);
   const [image, setImage] = useState<IImage | null>(null);
 
   const { toast } = useToast();
   const containerRef = useRef(null);
-  const canvasRef = useRef(null);
 
   const getCanvasDimensions = () => {
     return {
       x: window.innerWidth * 0.7,
-      y: window.innerHeight,
+      y: window.innerHeight * 0.95,
     };
-    console.log(
-      { x: window.innerWidth * 0.7, y: window.innerHeight } + "getcanvas"
-    );
   };
 
   const fitImageToCanvas = (
@@ -183,7 +162,7 @@ const UploadPhoto = () => {
         newWidth = newHeight * imageAspectRatio;
       }
     }
-
+    console.log('Image new height and width', newHeight, newWidth)
     return { newWidth, newHeight };
   };
 
@@ -206,7 +185,7 @@ const UploadPhoto = () => {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  });
 
   useEffect(() => {
     if (previewImage && imageRef.current) {
@@ -221,10 +200,6 @@ const UploadPhoto = () => {
           canvas_dimensions.x,
           canvas_dimensions.y
         );
-
-        // setNewImageDimensions({ width: newWidth, height: newHeight });
-        // console.log("New Image Dimensions:", newWidth, newHeight + "this is useEffect ")
-        // setOffset({ x: offsetX, y: offsetY });
 
         imageRef.current.cache();
         imageRef.current.getLayer().batchDraw();
@@ -278,47 +253,56 @@ const UploadPhoto = () => {
   };
 
   /***************************************************************
-   * Name: handleDownloadPDF
+   * Name: generatePDF
    ***************************************************************/
+
+const readFileData = (file) => {
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+};
+
+
   const generatePDF = async () => {
     try {
       // Create a new PDF document
       const pdfDoc = await PDFDocument.create();
-      const stage = stageRef.current;
-      const dataURL = stage.toDataURL();
-      // const containerElements = Array.from(
-      //   stageRef.current.children
-      // ) as HTMLElement[];
+      const stage = imageRef.current;
+      const fileData = await readFileData(selectedFile);
+      const uint8Array = new Uint8Array(fileData);
+      const image = await pdfDoc.embedPng(uint8Array);
+  
+      
+      const page = pdfDoc.addPage([originalImageDimensions.width, originalImageDimensions.height]);
 
-      // Add a new page
-      const page = pdfDoc.addPage();
-
-      // Load the image data as a PDF image
-      const image = await pdfDoc.embedPng(dataURL);
+      
 
       // Get the dimensions of the Konva stage
-      const stageWidth = stage.width();
-      const stageHeight = stage.height();
+      const imageWidth = originalImageDimensions.width;
+      const imageHeight = originalImageDimensions.height;
       let pageHeight = page.getHeight();
       let pageWidth = page.getWidth();
 
       let [finalWidth, finalHeight] = fitCanvas2Page(
-        stageWidth,
-        stageHeight,
+        imageWidth,
+        imageHeight,
         pageWidth,
         pageHeight
       );
 
       // Calculate the scale factor to fit the image to the page width
-      const scale_x = finalWidth / stageWidth;
-      const scale_y = finalHeight / stageHeight;
+      const scale_x = finalWidth / imageWidth;
+      const scale_y = finalHeight / imageHeight;
 
       // Calculate the adjusted image dimensions
-      const adjustedWidth = stageWidth * scale_x;
-      const adjustedHeight = stageHeight * scale_y;
+      const adjustedWidth = imageWidth * scale_x;
+      const adjustedHeight = imageHeight * scale_y;
       console.log(
-        { stageWidth },
-        { stageHeight },
+        { imageWidth },
+        { imageHeight },
         { pageWidth },
         { pageHeight }
       );
@@ -339,24 +323,30 @@ const UploadPhoto = () => {
 
       // Set the font and font size
       const font = await pdfDoc.embedFont("Helvetica");
-      const fontSize = 12;
-
+      
       // Draw the draggable data on the PDF page
-      // const draggableDataOffset = [];
-      // draggableData.forEach((element) => {
-      //   const positionX = element.position.x * scale_x;
-      //   const positionY = (element.position.y + element.height) * scale_y;
+      const draggableDataOffset = [];
+      const dataScale_x = finalWidth/newImageDimensions.width
+      //const dataScale_y = finalHeight / (stage.height() - ;
+      console.log("pageHeight =", pageHeight);
 
-      //   console.log(element.value, positionX, positionY);
-      //   page.drawText(element.value, {
-      //     x: positionX,
-      //     y: pageHeight - positionY,
-      //     font,
-      //     size: fontSize,
-      //   });
+      draggableData.forEach((element) => {
+        const positionX = element.position.x * dataScale_x;
+        const positionY = (element.position.y + element.height ) * dataScale_x;
 
-      //   draggableDataOffset.push({ x: positionX, y: pageHeight - positionY });
-      // });
+
+        console.log(element.value, "element.position.x =", element.position.x  , {dataScale_x}, "element.position.y ", element.position.y , {positionX}, {positionY} );
+        let y = pageHeight - positionY;
+
+        page.drawText(element.value, {
+          x: positionX,
+          y: y ,
+          font,
+          size: element.textSize * dataScale_x,
+        });
+
+        draggableDataOffset.push({ x: positionX, y: pageHeight - positionY });
+      });
 
       // console.log(draggableDataOffset, "draggableDataOffset");
       // const data = await axios.post(
@@ -408,24 +398,7 @@ const UploadPhoto = () => {
     }
   }; // end of generatePDF
 
-  /***************************************************************
-   * Name: handleDownloadPDF
-   ***************************************************************/
-  // const handleDownloadPDF = async () => {
-  //   const pdfBytes = await generatePDF();
-
-  //   // Convert the PDF bytes to a Blob
-  //   const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
-
-  //   // Create a download link
-  //   const downloadLink = document.createElement("a");
-  //   downloadLink.href = URL.createObjectURL(pdfBlob);
-  //   downloadLink.download = "certificate.pdf";
-
-  //   // Trigger the download
-  //   downloadLink.click();
-  // };
-
+ 
   /***************************************************************
    * Name: getCurrentDate
    ***************************************************************/
@@ -439,9 +412,6 @@ const UploadPhoto = () => {
   /***************************************************************
    * Name: handleFileInputChange
    ***************************************************************/
-
-  const formData = new FormData();
-
   const handleFileInputChange = async (event) => {
     setSelectedFile((prev) => null);
     const file = event.target.files[0];
@@ -463,6 +433,7 @@ const UploadPhoto = () => {
     setSelectedFile((prev) => file);
     const image = new Image();
     image.src = URL.createObjectURL(file);
+    console.log('Original image dimensions: ', image.width, image.height, 'px')
 
     //callback for image onload completion
     image.onload = () => {
@@ -479,9 +450,10 @@ const UploadPhoto = () => {
       );
 
       setNewImageDimensions({
-        width: Math.floor(newWidth),
-        height: Math.floor(newHeight),
+        width: newWidth,
+        height: newHeight,
       });
+      setImage(image);
       console.log(
         "New Image Dimensions:",
         newWidth,
@@ -505,96 +477,7 @@ const UploadPhoto = () => {
     setDraggableData(updatedData);
   }; //end of handleFileInputChange
 
-  /*******************************************************************
-   * Name: handleMouseDown
-   *******************************************************************/
-  // const handleMouseDown = (event, id) => {
-  //   if (event.button !== 0 && event.type !== "touchstart") {
-  //     return;
-  //   }
-
-  //   event.stopPropagation();
-
-  //   const clientX =
-  //     event.type === "touchstart" ? event.touches[0].clientX : event.clientX;
-  //   const clientY =
-  //     event.type === "touchstart" ? event.touches[0].clientY : event.clientY;
-  //   console.log("MouseDown:", clientX, clientY);
-
-  //   //update the element to set dragging flag and coordinates
-  //   setDraggableData((prev) => {
-  //     return prev.map((data) => {
-  //       if (data.id === id) {
-  //         return {
-  //           ...data,
-  //           isDragging: true,
-  //           dragStartPosition: { x: clientX, y: clientY },
-  //         };
-  //       }
-  //       return data;
-  //     });
-  //   });
-  // };
-
-  /*******************************************************************
-   * Name: handleMouseUp
-   *******************************************************************/
-  // const handleMouseUp = (event, id) => {
-  //   if (event.button !== 0 && event.type !== "touchend") {
-  //     return;
-  //   }
-  //   event.stopPropagation();
-  //   console.log("MouseUp : id =", id);
-
-  //   //clear the dragging flag
-  //   setDraggableData((prev) => {
-  //     return prev.map((data) => {
-  //       if (data.id === id) {
-  //         return {
-  //           ...data,
-  //           isDragging: false,
-  //           dragStartPosition: { x: 0, y: 0 },
-  //         };
-  //       }
-  //       return data;
-  //     });
-  //   });
-  // };
-
-  /*******************************************************************
-   * Name: handleMouseMove
-   *******************************************************************/
-  // const handleMouseMove = (event, id) => {
-  //   const boundingRect = containerRef.current.getBoundingClientRect();
-  //   console.log("Bounding rect:", boundingRect);
-
-  //   const clientX =
-  //     event.type === "touchmove" ? event.touches[0].clientX : event.clientX;
-  //   const clientY =
-  //     event.type === "touchmove" ? event.touches[0].clientY : event.clientY;
-
-  //   //update the element being dragged
-  //   setDraggableData((prev) => {
-  //     return prev.map((data) => {
-  //       if (data.id === id && data.isDragging) {
-  //         console.log("Dragging, clientX =", clientX, "clientY =", clientY);
-  //         const offsetX = clientX - data.dragStartPosition.x;
-  //         const offsetY = clientY - data.dragStartPosition.y;
-  //         console.log({ offsetX }, { offsetY }, "this is handleMouseMove");
-
-  //         return {
-  //           ...data,
-  //           position: {
-  //             x: data.position.x + offsetX,
-  //             y: data.position.y + offsetY,
-  //           },
-  //           dragStartPosition: { x: clientX, y: clientY },
-  //         };
-  //       }
-  //       return data;
-  //     });
-  //   });
-  // };
+  
 
   /*******************************************************************
    * Name: handleInputChange
@@ -626,7 +509,7 @@ const UploadPhoto = () => {
       width: 100,
       height: 20,
       textColor: "FFFFFF",
-      textSize: 18,
+      textSize: 20,
       isCentered: false,
     };
     setDraggableData((prevData) => [...prevData, newField]);
@@ -771,37 +654,32 @@ const UploadPhoto = () => {
         compositeCanvasHeight
       );
 
-      // Draw the draggable data text on the composite canvas
-      draggableData.forEach((data) => {
-        const { position, value, width, height, textSize, textColor } = data;
-        const x = position.x * scale;
-        const y = position.y * scale;
-        const rectWidth = width * scale;
-        const rectHeight = height * scale;
-        const fontSize = textSize * scale;
+      // // Draw the draggable data text on the composite canvas
+      // draggableData.forEach((data) => {
+      //   const { position, value, width, height, textSize, textColor } = data;
+      //   const x = position.x * scale;
+      //   const y = position.y * scale;
+      //   const rectWidth = width * scale;
+      //   const rectHeight = height * scale;
+      //   const fontSize = textSize * scale;
 
-        // Fill the rectangle
-        compositeContext.fillStyle = "rgba(0, 0, 0, 0)"; // Set the rectangle color to black
-        compositeContext.fillRect(x, y, rectWidth, rectHeight);
+      //   // Fill the rectangle
+      //   compositeContext.fillStyle = "rgba(0, 0, 0, 0)"; // Set the rectangle color to black
+      //   compositeContext.fillRect(x, y, rectWidth, rectHeight);
 
-        // Fill the text with the provided textColor value
-        compositeContext.fillStyle = `${textColor}`; // Set the font color
-        compositeContext.font = `${fontSize}px Arial`;
-        compositeContext.fillText(value, x, y + fontSize);
-      });
+      //   // Fill the text with the provided textColor value
+      //   compositeContext.fillStyle = `${textColor}`; // Set the font color
+      //   compositeContext.font = `${fontSize}px Arial`;
+      //   compositeContext.fillText(value, x, y + fontSize);
+      // });
 
       // Generate the composite image data URL
       const compositeDataURL = compositeCanvas.toDataURL();
-      const pdf = await PDFDocument.create();
-
-      const BlobPDF = pdf.embedPng(compositeDataURL);
-
-
 
       // Send the composite image data and other data to the server
       const data = {
         name: selectedFile?.name,
-        photo: BlobPDF,
+        photo: compositeDataURL,
         konvaJSON: konvaJSON,
         draggableData: draggableData,
         width: newImageDimensions.width,
@@ -810,44 +688,51 @@ const UploadPhoto = () => {
 
       console.log(data);
 
-      const response = await axios.post(
-        "http://localhost:8080/api/v1/post",
-        data
-      );
-      const {
-        data: { post, photoUrl },
-      } = response;
-
-      console.log("saved");
-      toast({
-        title: "Saved",
-        description: photoUrl,
-      });
-      const date = getCurrentDate();
+      
 
       
-    const pdfDoc = await PDFDocument.create();
-    const blobPDF = pdfDoc.embedPng(compositeDataURL);
- 
+      const pdfDoc = await PDFDocument.create();
+      const pngImage = await pdfDoc.embedPng(compositeDataURL);
+  
+      const pdfBytes = await pdfDoc.save(); // Convert the PDF document to bytes
+  
+      const blobPDF = new Blob([pdfBytes], { type: 'application/pdf' });
+  
+      formData.append('file', blobPDF, 'document.pdf');
+  
+      formData.append('title', selectedFile?.name.toUpperCase());
+
+      formData.append('schoolId', '1');
+      const date = getCurrentDate();
+      formData.append('startDate', date);
+
+      formData.append('fileName', selectedFile?.name.toUpperCase());
+      // formData.append('startDate', );
+      //formData.append('startDate', date);
+      formData.append('category', 'General');
+      formData.append('knobs', JSON.stringify(draggableData));
 
     // req.body.title, req.body.schoolid, req.body.startDate, req.body.category, req.body.fileName
-      const newData = await fetch("https://0.0.0.0:8443/save-certificate", {
+      const response = await fetch("http://localhost:8443/save-certificate", {
         headers: {
-          "Content-Type": "application/json",
-        }, 
-        body: JSON.stringify({
-          fileName: selectedFile?.name,
-          photo: blobPDF,
-          schoolid: 1,
-          startDate: date,
-          title: selectedFile?.name.toUpperCase(),
-          category: "General",
-          knobs: JSON.stringify(draggableData)
-        })
+          "Authorization":"8BEYKFmSROr0iUV36SjUUOu38ZDgifivsFU2SzbUKNTXUQY0b42LkveyQ0Y7t4BtypcMnvrjLJL4o5SUoaE9siUrfS3wSUi2",
+          // "Content-Type": "multipart/form-data"
+        },
+        method: "POST",
+        body: formData
       });
+      const newData = await response.json();
+      console.log("formData sent", newData);
 
-      console.log(newData);
-
+      // fetchfetconsole.log(newData);
+  
+     formData.delete('file');
+      formData.delete('title');
+      formData.delete('schoolId');
+      formData.delete('startDate');
+      formData.delete('fileName');
+      formData.delete('category');
+      formData.delete('knobs');
     } catch (error) {
       console.log(error);
       toast({
@@ -948,7 +833,6 @@ const UploadPhoto = () => {
                   width={canvas_dimensions.x}
                   height={canvas_dimensions.y}
                   ref={stageRef}
-                  className=""
                 >
                   <Layer>
                     <KonvaImage
@@ -962,20 +846,19 @@ const UploadPhoto = () => {
                         key={data.id}
                         x={data.position.x}
                         y={data.position.y}
+                        ref={groupRef}
                         draggable
                         onDragStart={(e) => handleDragStart(e, data.id)}
                         onDragEnd={(e) => handleDragEnd(e, data.id)}
                         onDragMove={(e) => handleDragMove(e, data.id)}
+                        height={data.height}
                       >
-                        <Rect
-                          width={data.width}
-                          height={data.height}
-                          fill={`rgba(0, 0, 0, 0)`}
-                        />
                         <Text
                           text={data.value}
                           fill={`${data.textColor}`}
                           fontSize={data.textSize}
+                          height={data.textSize}
+                          padding={0}
                         />
                       </Group>
                     ))}
@@ -1002,23 +885,7 @@ const UploadPhoto = () => {
 
           {previewImage ? (
             <>
-              {/* <div
-              className="relative grid grid-cols-1 h-[200px] space-y-1 mr-0 w-[50px]"
-              >
-              <button
-              className="mr-0 rounded-l-md text-center bg-panels text-white py-3 hover:bg-panels/50"
-              >
-                <IoPhonePortraitOutline
-                className="text-center mx-auto"
-                />
-              </button>
-              <button className="rounded-l-md bg-panels text-white py-3 hover:bg-panels/50">
-                <IoPhoneLandscapeOutline/>
-                </button>
-              <button className="rounded-l-md bg-panels text-white py-3 hover:bg-panels/50">
-                2
-                </button>
-              </div> */}
+             
               <div className="max-w-[364px] col-span-1 absolute overflow-y-auto px-4 right-0 pt-2 border-l-[1px] border-border h-full bg-panels">
                 <div className="mx-auto">
                   <div className="flex items-center">
@@ -1030,71 +897,7 @@ const UploadPhoto = () => {
                       Add Field
                     </button>
 
-                    {/* <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
-                            <IoPhonePortraitOutline
-                              onClick={() => {
-                                setCanvasDimensions({
-                                  x: 400,
-                                  y: 600,
-                                });
-                              }}
-                              fontSize={15}
-                              className=" text-center mx-auto hover:text-blue-600"
-                            />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Portrait Canvas</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
-                            <IoPhoneLandscapeOutline
-                              onClick={() => {
-                                setCanvasDimensions({
-                                  x: 600,
-                                  y: 400,
-                                });
-                              }}
-                              fontSize={15}
-                              className="text-center mx-auto hover:text-blue-600"
-                            />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Landscape Canvas</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="cursor-help mr-0 rounded-md text-center border-1 text-white p-2 mx-2">
-                            <IoSquareOutline
-                              onClick={() => {
-                                setCanvasDimensions({
-                                  x: 500,
-                                  y: 500,
-                                });
-                              }}
-                              fontSize={15}
-                              className="text-center mx-auto hover:text-blue-600"
-                            />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Square Canvas</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider> */}
+                    
 
                     <input
                       type="file"
@@ -1193,7 +996,6 @@ const UploadPhoto = () => {
                                 </button>
 
                                 <button
-                                  // className="px-2 border rounded-md text-blue-500"
                                   onClick={() => {
                                     const newValue = data.width - 1;
                                     if (newValue >= 1) {
@@ -1217,9 +1019,6 @@ const UploadPhoto = () => {
                               </div>
                             </div>
                           </TableCell>
-                          {/* <span className="text-xs mx-2 justify-center m-auto">
-                      Width{" "}
-                    </span> */}
 
                           <TableCell>
                             <div className="flex">
@@ -1317,24 +1116,8 @@ const UploadPhoto = () => {
                                 <HexColorPicker
                                   color={color}
                                   onChange={(newColor) => handleColorChange(newColor, data.id)}
-
-                                  // () => {
-                                  //   const updateData = draggableData.map(
-                                  //     (item) => {
-                                  //       if (item.id === data.id) {
-                                  //         return {
-                                  //           ...item,
-                                  //           textColor: data.textColor,
-                                  //         };
-                                  //       }
-                                  //       return item;
-                                  //     }
-                                  //   );
-                                  //   setDraggableData(updateData);
-                                  // }
                                 />
-                                ;
-                                {/* color={data.textColor} onChange={handleChange} */}
+                             
                               </DialogContent>
                             </Dialog>
                           </TableCell>
