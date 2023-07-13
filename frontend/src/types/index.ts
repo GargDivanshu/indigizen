@@ -1,6 +1,6 @@
 export interface DraggableItem {
     id: string;
-    value?: string;
+    value: string | "";
     position: { x: number; y: number };
     isDragging: boolean;
     dragStartPosition: { x: number; y: number };
@@ -11,6 +11,7 @@ export interface DraggableItem {
     isCentered: boolean;
     type: string | HTMLImageElement;
     image? : HTMLImageElement | null;
+    isFixed: boolean;
   }
 
 

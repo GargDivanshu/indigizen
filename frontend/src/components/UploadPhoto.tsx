@@ -8,7 +8,7 @@ import { LuClipboardSignature } from "react-icons/lu";
 import { Stage, Layer, Image as KonvaImage, Group, Text } from "react-konva";
 import axios from "axios";
 import { PDFDocument } from "pdf-lib";
-import Jimp from 'jimp';
+import Jimp from "jimp";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +52,7 @@ import {
 
 import { IImage } from "./../types/index";
 import { FaSignature } from "react-icons/fa";
+import { pdf } from "html-pdf";
 
 const UploadPhoto = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -90,6 +91,7 @@ const UploadPhoto = () => {
       textSize: 20,
       isCentered: false,
       type: "text",
+      isFixed: false,
     },
     {
       id: "date",
@@ -103,6 +105,7 @@ const UploadPhoto = () => {
       textSize: 20,
       isCentered: false,
       type: "text",
+      isFixed: false,
     },
     {
       id: "link",
@@ -116,6 +119,7 @@ const UploadPhoto = () => {
       textSize: 20,
       isCentered: false,
       type: "text",
+      isFixed: false,
     },
   ]);
 
@@ -152,9 +156,11 @@ const UploadPhoto = () => {
       const imageAspectRatio = imageWidth / imageHeight;
 
       if (imageWidth > imageHeight && imageWidth > canvasWidth) {
+        // landscape
         newWidth = canvasWidth;
         newHeight = newWidth / imageAspectRatio;
       } else if (imageHeight > imageWidth && imageHeight > canvasHeight) {
+        // portrait
         newHeight = canvasHeight;
         newWidth = newHeight * imageAspectRatio;
       }
@@ -187,20 +193,13 @@ const UploadPhoto = () => {
   useEffect(() => {
     if (previewImage && imageRef.current) {
       const img = new Image();
-      img.src = previewImage;
       img.onload = () => {
         setImage(img as IImage);
-
-        const { newWidth, newHeight } = fitImageToCanvas(
-          img.width,
-          img.height,
-          canvas_dimensions.x,
-          canvas_dimensions.y
-        );
 
         imageRef.current.cache();
         imageRef.current.getLayer().batchDraw();
       };
+      img.src = previewImage;
     }
   }, [previewImage, canvas_dimensions, imageRef]);
 
@@ -221,9 +220,9 @@ const UploadPhoto = () => {
 
     window.addEventListener("resize", handleResize);
 
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
+    // return () => {
+    //   window.removeEventListener("resize", handleResize);
+    // };
   }, []);
 
   const fitCanvas2Page = (canvasW, canvasH, pageW, pageH) => {
@@ -262,11 +261,169 @@ const UploadPhoto = () => {
     });
   };
 
+  const imageToBlob = (image) => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      ctx.drawImage(image, 0, 0);
+      canvas.toBlob((blob) => {
+        resolve(blob);
+      });
+    });
+  };
+
+  async function convertImageToPDF(imageElement) {
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage();
+
+    const imageSrc = imageElement.src;
+    const imageBytes = await fetch(imageSrc).then((response) =>
+      response.arrayBuffer()
+    );
+    const image = await pdfDoc.embedPng(imageBytes);
+
+    page.drawImage(image, {
+      x: 0,
+      y: 0,
+      width: imageElement.width,
+      height: imageElement.height,
+    });
+
+    return await pdfDoc.save();
+  }
+
+  const imageToBuffer = (image) => {
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    context.drawImage(image, 0, 0);
+
+    // Get the canvas data as an ImageData object
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+    // Create a new Uint8Array to hold the pixel data
+    const buffer = new Uint8Array(imageData.data.length);
+
+    // Copy the pixel data from the ImageData object to the buffer
+    for (let i = 0; i < imageData.data.length; i++) {
+      buffer[i] = imageData.data[i];
+    }
+
+    return buffer;
+  };
+
+  async function processImageAsync(element, sampleForm) {
+    console.log(element.image.src);
+    const base64Blob = element.image.src.split(',')[1]; // Replace with your base64 blob
+    console.log(base64Blob, "base64Blob");
+    const decodedData = window.atob(base64Blob);
+    const uint8Array = new Uint8Array(decodedData.length);
+  
+    for (let i = 0; i < decodedData.length; ++i) {
+      uint8Array[i] = decodedData.charCodeAt(i);
+    }
+  
+    const blob = new Blob([uint8Array], {
+      type: "application/octet-stream",
+    });
+  
+    // Append the Blob object to the FormData object
+    sampleForm.append("file", blob, element.value);
+  }
+
+  const sampleUpload = async () => {
+    const sampleForm = new FormData();
+    draggableData.map(async (element) => {
+      if (element.type !== "text") {
+        // const pdfBytes = await convertImageToPDF(element.image);
+        try {
+          await processImageAsync(element, sampleForm);
+          console.log("Blob appended to FormData:", sampleForm);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    });
+
+    
+    await axios
+      .post("http://localhost:8443/save-certificate", sampleForm, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization:
+            "8BEYKFmSROr0iUV36SjUUOu38ZDgifivsFU2SzbUKNTXUQY0b42LkveyQ0Y7t4BtypcMnvrjLJL4o5SUoaE9siUrfS3wSUi2",
+        },
+      })
+      .then((response) => {
+        console.log(response.data.message);
+        console.log(formData, "formData");
+      })
+      .catch((error) => {
+        console.error("Error uploading PDF:", error);
+      });
+
+
+    const pdfDoc = await PDFDocument.create();
+    // const stage = imageRef.current;
+    const fileData = await readFileData(selectedFile);
+    const uint8Array = new Uint8Array(fileData);
+    const image = await pdfDoc.embedPng(uint8Array);
+
+    const page = pdfDoc.addPage([
+      originalImageDimensions.width,
+      originalImageDimensions.height,
+    ]);
+
+    // Get the dimensions of the Konva stage
+    const imageWidth = originalImageDimensions.width;
+    const imageHeight = originalImageDimensions.height;
+    let pageHeight = page.getHeight();
+    let pageWidth = page.getWidth();
+
+    let [finalWidth, finalHeight] = fitCanvas2Page(
+      imageWidth,
+      imageHeight,
+      pageWidth,
+      pageHeight
+    );
+
+    // Calculate the scale factor to fit the image to the page width
+    const scale_x = finalWidth / imageWidth;
+    const scale_y = finalHeight / imageHeight;
+
+    // Calculate the adjusted image dimensions
+    const adjustedWidth = imageWidth * scale_x;
+    const adjustedHeight = imageHeight * scale_y;
+    const dataScale_x = finalWidth / newImageDimensions.width;
+    const font = await pdfDoc.embedFont("Helvetica");
+    // Draw the image on the PDF page
+    page.drawImage(image, {
+      x: 0,
+      y: pageHeight - adjustedHeight,
+      width: adjustedWidth,
+      height: adjustedHeight,
+    });
+
+    const pdfBytes = await pdfDoc.save();
+
+    // Create a blob from the PDF bytes
+    const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+    sampleForm.append("file", pdfBlob, pdfBlob.name);
+
+    sampleForm.append("file", selectedFile, "file1");
+    sampleForm.append("file", selectedFile, "file2");
+
+  };
+
   const generatePDF = async () => {
     try {
+      return await sampleUpload();
       // Create a new PDF document
       const pdfDoc = await PDFDocument.create();
-      const stage = imageRef.current;
+      // const stage = imageRef.current;
       const fileData = await readFileData(selectedFile);
       const uint8Array = new Uint8Array(fileData);
       const image = await pdfDoc.embedPng(uint8Array);
@@ -296,19 +453,8 @@ const UploadPhoto = () => {
       // Calculate the adjusted image dimensions
       const adjustedWidth = imageWidth * scale_x;
       const adjustedHeight = imageHeight * scale_y;
-      console.log(
-        { imageWidth },
-        { imageHeight },
-        { pageWidth },
-        { pageHeight }
-      );
-      console.log(
-        { finalWidth },
-        { finalHeight },
-        { adjustedWidth },
-        { adjustedHeight }
-      );
-
+      const dataScale_x = finalWidth / newImageDimensions.width;
+      const font = await pdfDoc.embedFont("Helvetica");
       // Draw the image on the PDF page
       page.drawImage(image, {
         x: 0,
@@ -317,16 +463,41 @@ const UploadPhoto = () => {
         height: adjustedHeight,
       });
 
+      draggableData.forEach(async (element) => {
+        if (element.type === "text") {
+          page.drawText(element.value, {
+            x: element.position.x * dataScale_x,
+            y: pageHeight - (element.position.y + element.height) * dataScale_x,
+            font,
+            size: element.textSize * dataScale_x,
+          });
+        } else {
+          const image = await pdfDoc.embedPng(element.image.src);
+          page.drawImage(image, {
+            x: element.position.x * dataScale_x,
+            y: pageHeight - (element.position.y + element.height) * dataScale_x,
+            height: element.height * dataScale_x,
+            width: element.width * dataScale_x,
+          });
+        }
+      });
+
       // Set the font and font size
-      const font = await pdfDoc.embedFont("Helvetica");
 
       // Draw the draggable data on the PDF page
       const draggableDataOffset = [];
-      const dataScale_x = finalWidth / newImageDimensions.width;
+
       //const dataScale_y = finalHeight / (stage.height() - ;
       console.log("pageHeight =", pageHeight);
 
-      draggableData.forEach((element) => {
+      const pdfBytes = await pdfDoc.save();
+
+      // Create a blob from the PDF bytes
+      const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+
+      formData.append("file", pdfBlob, pdfBlob.name);
+
+      draggableData.forEach(async (element) => {
         const positionX = element.position.x * dataScale_x;
         const positionY = (element.position.y + element.height) * dataScale_x;
 
@@ -349,38 +520,84 @@ const UploadPhoto = () => {
           size: element.textSize * dataScale_x,
         });
 
+        const formElements = [];
+
+        if (element.type === "text") {
+          formElements.push({
+            title: element.value,
+            type: element.type,
+            textSize: element.textSize * dataScale_x,
+            x: positionX,
+            y: y,
+            textColor: element.textColor,
+            isCentered: element.isCentered,
+            isFixed: element.isFixed,
+          });
+        } else {
+          // formData.append("file", pdfBlob, "Image");
+
+          const pdfBytes = await convertImageToPDF(element.image);
+
+          // Append the PDF file to the FormData object
+          formData.append("file", new Blob([pdfBytes]), element.value);
+
+          // const imageBytes = await pdfDoc.save();
+
+          // // Create a blob from the PDF bytes
+          // const imgBlob = new Blob([imageBytes], { type: "application/pdf" });
+          //     formData.append("file", imgBlob, element.value);
+
+          formElements.push({
+            title: element.value,
+            type: element.type,
+            imageSrc: element.image?.src,
+            x: positionX,
+            y: y,
+            // isFixed: element.isFixed,
+          });
+        }
+        formData.append("formElements", JSON.stringify(formElements));
+
+        if (element.type === "image") {
+          const signPdf = await pdfDoc.embedPng(element.image?.src);
+          page.drawImage(signPdf, {
+            x: positionX,
+            y: y,
+          });
+        }
+
         draggableDataOffset.push({ x: positionX, y: pageHeight - positionY });
       });
-
-      const pdfBytes = await pdfDoc.save();
-
-      // Create a blob from the PDF bytes
-      const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
 
       // Download the PDF file
       const downloadLink = document.createElement("a");
       downloadLink.href = URL.createObjectURL(pdfBlob);
       downloadLink.download = "generated_pdf.pdf";
       downloadLink.click();
-      formData.append("file", pdfBlob, "document.pdf");
-      axios
-        .post("http://localhost:8080/api/v1/save", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        })
-        .then((response) => {
-          console.log(response.data.message);
-        })
-        .catch((error) => {
-          console.error("Error uploading PDF:", error);
-        });
+
+      console.log("pdfBlob", pdfBlob);
 
       // console.log(fileSave, "fileSave");
 
       console.log("PDF generated and downloaded successfully");
+      console.log("FormData contents:");
+      formData.forEach((value, key) => {
+        console.log(key, value);
+      });
+      formData.delete("file");
+      formData.delete("formElements");
+      // formData.delete("text");
+      // formData.delete("textSize");
+      // formData.delete("x");
+      // formData.delete("y");
+      // formData.delete("textColor");
+      // formData.delete("isCentered");
+      // formData.delete("isFixed");
+      formData.forEach((value, key) => {
+        console.log(key, value);
+      });
     } catch (error) {
-      console.log(error);
+      console.log("myerrror " + error);
       toast({
         title: "Error",
         description: error.message,
@@ -420,16 +637,23 @@ const UploadPhoto = () => {
     }
 
     setSelectedFile((prev) => file);
-    const image = new Image();
-    image.src = URL.createObjectURL(file);
-    console.log("Original image dimensions: ", image.width, image.height, "px");
+    console.log("selectedFile", selectedFile);
 
+    const image = new Image();
     //callback for image onload completion
+
     image.onload = () => {
       setOriginalImageDimensions({
         width: image.width,
         height: image.height,
       });
+
+      console.log(
+        "Original image dimensions: ",
+        image.width,
+        image.height,
+        "px"
+      );
 
       const { newWidth, newHeight } = fitImageToCanvas(
         image.width,
@@ -449,6 +673,7 @@ const UploadPhoto = () => {
         newHeight + "this is handleInput "
       );
     }; //end of image onload
+    image.src = URL.createObjectURL(file);
 
     const reader = new FileReader();
     reader.onload = async () => {
@@ -456,7 +681,7 @@ const UploadPhoto = () => {
     };
     reader.readAsDataURL(file);
 
-    const currentDate = getCurrentDate(); // Get the current date
+    const currentDate = "date"; // Get the current date
     const updatedData = draggableData.map((data) => {
       if (data.id === "date") {
         return { ...data, value: currentDate }; // Update the value with the current date
@@ -490,7 +715,10 @@ const UploadPhoto = () => {
     const newField: DraggableItem = {
       id: newFieldId,
       value: "New Field",
-      position: { x: 0, y: 0 },
+      position: {
+        x: Math.random() * newImageDimensions.width,
+        y: Math.random() * newImageDimensions.height,
+      },
       isDragging: false,
       dragStartPosition: { x: 0, y: 0 },
       width: 100,
@@ -499,6 +727,7 @@ const UploadPhoto = () => {
       textSize: 20,
       isCentered: false,
       type: "text",
+      isFixed: false,
     };
     setDraggableData((prevData) => [...prevData, newField]);
   };
@@ -557,8 +786,11 @@ const UploadPhoto = () => {
 
       if (validationResult.success) {
         const updatedData = draggableData.map((data) => {
+          const ratio = data.height / data.width;
           if (data.id === id) {
-            return { ...data, height, textSize: height - 2 };
+            return data.type === "text"
+              ? { ...data, height, textSize: height - 2 }
+              : { ...data, height, width: height / ratio };
           }
           return data;
         });
@@ -581,13 +813,13 @@ const UploadPhoto = () => {
 
   const removeSimilarColorBackground = (imageData, referenceRGB, tolerance) => {
     const [refR, refG, refB] = referenceRGB;
-  
+
     for (let i = 0; i < imageData.data.length; i += 4) {
       const r = imageData.data[i];
       const g = imageData.data[i + 1];
       const b = imageData.data[i + 2];
       const alpha = imageData.data[i + 3];
-  
+
       // Check if the pixel is similar to the reference RGB values within the given tolerance
       if (
         Math.abs(r - refR) <= tolerance &&
@@ -599,85 +831,149 @@ const UploadPhoto = () => {
         imageData.data[i + 3] = 0;
       }
     }
-  
+
     return imageData;
   };
-  
+
+  function hexToRgb(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result
+      ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16),
+        }
+      : null;
+  }
+
+  const changeImageColor = (imageData, color, id) => {
+    const image = new Image();
+
+    image.onload = () => {
+      const updatedData = draggableData.map((item) => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = item.width;
+        canvas.height = item.height;
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        var colorRGB = hexToRgb(color);
+        const imageDataTemp = ctx.getImageData(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        if (item.id === id) {
+          for (let i = 0; i < imageDataTemp.data.length; i += 4) {
+            if (imageDataTemp.data[i + 3] === 0) {
+              continue;
+            }
+            imageDataTemp.data[i] = colorRGB.r;
+            imageDataTemp.data[i + 1] = colorRGB.g;
+            imageDataTemp.data[i + 2] = colorRGB.b;
+            // imageDataTemp.data[i + 3] = colorRGB.a;
+          }
+
+          ctx.putImageData(imageDataTemp, 0, 0);
+
+          const newImage = new Image();
+          newImage.src = canvas.toDataURL("image/png");
+
+          return {
+            ...item,
+            image: newImage,
+          };
+        }
+        return item;
+      });
+      setDraggableData(updatedData);
+    };
+    image.src = imageData.src;
+  };
+
   const uploadSignature = async (event) => {
-    const file = event.target.files[0];
-  
-    if (!file) {
+    const files: FileList = event.target.files;
+
+    if (!files || files.length === 0) {
       return;
     }
-  
-    const image = new Image();
-    image.src = URL.createObjectURL(file);
-  
-    image.onload = () => {
-      const aspectRatio = image.width / image.height;
-      const maxWidth = 100; // Maximum width for the draggable image
-      const maxHeight = 100; // Maximum height for the draggable image
-  
-      let width = image.width;
-      let height = image.height;
-  
-      // Adjust the dimensions based on the aspect ratio
-      // if (width > maxWidth) {
-      //   width = maxWidth;
-      //   height = width / aspectRatio;
-      // }
-  
-      // if (height > maxHeight) {
-      //   height = maxHeight;
-      //   width = height * aspectRatio;
-      // }
-  
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-  
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(image, 0, 0, width, height);
-  
-      const imageData = ctx.getImageData(0, 0, width, height);
-      const referenceRGB = [
-        imageData.data[0], // Red component of the top-left pixel
-        imageData.data[1], // Green component of the top-left pixel
-        imageData.data[2], // Blue component of the top-left pixel
-      ];
-      const tolerance = 50; // Tolerance for RGB similarity
-  
-      const modifiedImageData = removeSimilarColorBackground(
-        imageData,
-        referenceRGB,
-        tolerance
-      );
-  
-      ctx.putImageData(modifiedImageData, 0, 0);
-  
-      const newImage = new Image();
-      newImage.src = canvas.toDataURL();
-  
-      const newFieldId = `field${draggableData.length + 1}`;
-      const newField = {
-        id: newFieldId,
-        position: { x: 0, y: 0 },
-        isDragging: false,
-        dragStartPosition: { x: 0, y: 0 },
-        width: width,
-        height: height,
-        isCentered: false,
-        type: 'image',
-        image: newImage,
+
+    Array.from(files).forEach((file) => {
+      const image = new Image();
+      image.onload = () => {
+        const imgName = file.name;
+        const aspectRatio = image.width / image.height;
+        const maxWidth = originalImageDimensions.width / 2; // Maximum width for the draggable image
+        const maxHeight = originalImageDimensions.height / 2; // Maximum height for the draggable image
+
+        let width = image.width;
+        let height = image.height;
+
+        console.log("width", width);
+        console.log("height", height);
+        // Adjust the dimensions based on the aspect ratio
+        if (width > maxWidth) {
+          width = maxWidth;
+          height = width / aspectRatio;
+        }
+
+        if (height > maxHeight) {
+          height = maxHeight;
+          width = height * aspectRatio;
+        }
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(image, 0, 0, width, height);
+
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const referenceRGB = [
+          imageData.data[0], // Red component of the top-left pixel
+          imageData.data[1], // Green component of the top-left pixel
+          imageData.data[2], // Blue component of the top-left pixel
+        ];
+        const tolerance = 70; // Tolerance for RGB similarity
+
+        const modifiedImageData = removeSimilarColorBackground(
+          imageData,
+          referenceRGB,
+          tolerance
+        );
+
+        ctx.putImageData(modifiedImageData, 0, 0);
+
+        const newImage = new Image();
+        newImage.src = canvas.toDataURL("image/png");
+
+        const newFieldId = `field${draggableData.length + 1}`;
+        const newField = {
+          id: newFieldId,
+          value: imgName,
+          textSize: 0,
+          position: { x: 0, y: 0 },
+          isDragging: false,
+          dragStartPosition: { x: 0, y: 0 },
+          width: width,
+          height: height,
+          isCentered: false,
+          type: "image",
+          image: newImage,
+          isFixed: false,
+        };
+
+        console.log(newImage, "newImage");
+
+        setDraggableData((prevData) => [...prevData, newField]);
       };
-  
-      setDraggableData((prevData) => [...prevData, newField]);
-    };
+      image.src = URL.createObjectURL(file);
+    });
   };
-  
-  
-  
-  
 
   /*******************************************************************
    * Name: loadImage
@@ -886,6 +1182,14 @@ const UploadPhoto = () => {
     setDraggableData(updatedData);
   };
 
+  // console.log("draggableData =---> image" + draggableData.map((item) => {
+
+  //     if (item.image) return {
+  //       ...item,
+  //     }
+
+  // }));
+
   return (
     <div className="relative bg-blank h-screen scrollbar-macos-style">
       <div className="w-full bg-panels py-[2px] border-b-[1px] border-border">
@@ -933,26 +1237,26 @@ const UploadPhoto = () => {
                     {draggableData.map((data) => {
                       if (data.type === "text") {
                         return (
-                        <Group
-                          key={data.id}
-                          x={data.position.x}
-                          y={data.position.y}
-                          ref={groupRef}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, data.id)}
-                          onDragEnd={(e) => handleDragEnd(e, data.id)}
-                          onDragMove={(e) => handleDragMove(e, data.id)}
-                          height={data.height}
-                        >
-                          <Text
-                            text={data.value}
-                            fill={`${data.textColor}`}
-                            fontSize={data.textSize}
-                            height={data.textSize}
-                            padding={0}
-                          />
-                        </Group>
-                        )
+                          <Group
+                            key={data.id}
+                            x={data.position.x}
+                            y={data.position.y}
+                            ref={groupRef}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, data.id)}
+                            onDragEnd={(e) => handleDragEnd(e, data.id)}
+                            onDragMove={(e) => handleDragMove(e, data.id)}
+                            height={data.height}
+                          >
+                            <Text
+                              text={data.value}
+                              fill={`${data.textColor}`}
+                              fontSize={data.textSize}
+                              height={data.textSize}
+                              padding={0}
+                            />
+                          </Group>
+                        );
                       } else {
                         return (
                           <Group
@@ -967,7 +1271,12 @@ const UploadPhoto = () => {
                             width={data.width}
                             height={data.height}
                           >
-                            <KonvaImage image={data.image} width={data.width} height={data.height} />
+                            <KonvaImage
+                              image={data.image}
+                              width={data.width}
+                              height={data.height}
+                              className="border-2 bg-red-400"
+                            />
                           </Group>
                         );
                       }
@@ -1225,7 +1534,13 @@ const UploadPhoto = () => {
                                 <HexColorPicker
                                   color={color}
                                   onChange={(newColor) =>
-                                    handleColorChange(newColor, data.id)
+                                    data.type === "text"
+                                      ? handleColorChange(newColor, data.id)
+                                      : changeImageColor(
+                                          data.image,
+                                          newColor,
+                                          data.id
+                                        )
                                   }
                                 />
                               </DialogContent>
