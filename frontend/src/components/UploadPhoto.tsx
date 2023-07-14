@@ -722,38 +722,6 @@ const UploadPhoto = () => {
     );
   };
 
-  /*******************************************************************
-   * Name: handleWidthChange
-   *******************************************************************/
-  // const handleWidthChange = (event, id) => {
-  //   const widthInput = event.target.value;
-  //   const width = parseInt(widthInput, 10); // Convert the input to an integer
-
-  //   if (!isNaN(width)) {
-  //     // Validate the input using the schema
-  //     const validationResult = dimensionSchema.safeParse(width);
-
-  //     if (validationResult.success) {
-  //       const updatedData = draggableData.map((data) => {
-  //         if (data.id === id) {
-  //           return { ...data, width };
-  //         }
-  //         return data;
-  //       });
-  //       setDraggableData(updatedData);
-  //     } else {
-  //       // Handle the validation error
-  //       console.error("Width must be an integer");
-  //     }
-  //   } else {
-  //     // Handle invalid input
-  //     console.error("Invalid width input");
-  //     toast({
-  //       title: "Invalid Width Input",
-  //       description: "Width must be a positive Integer",
-  //     });
-  //   }
-  // };
 
   /*******************************************************************
    * Name: handleHeightChange
@@ -817,6 +785,9 @@ const UploadPhoto = () => {
     return imageData;
   };
 
+  // *******************************************************************
+  //  * Name: hexToRgb
+  //  *******************************************************************/
   function hexToRgb(hex) {
     var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
@@ -826,8 +797,12 @@ const UploadPhoto = () => {
           b: parseInt(result[3], 16),
         }
       : null;
-  }
+  } // end of hexToRgb
 
+  // *******************************************************************
+  //  * Name: changeImageColor
+  //  * Description: Changes the color of the signature image
+  //  *******************************************************************/
   const changeImageColor = (imageData, color, id) => {
     const image = new Image();
 
@@ -874,8 +849,14 @@ const UploadPhoto = () => {
       setDraggableData(updatedData);
     };
     image.src = imageData.src;
-  };
+  }; // end of changeImageColor
 
+
+
+  // *******************************************************************
+  //  * Name: uploadSignature
+  //  * Description: Uploads the signature image
+  //  *******************************************************************/
   const uploadSignature = async (event) => {
     const files: FileList = event.target.files;
 
@@ -955,160 +936,12 @@ const UploadPhoto = () => {
       };
       image.src = URL.createObjectURL(file);
     });
-  };
+  }; // end of uploadSignature
 
-  /*******************************************************************
-   * Name: loadImage
-   *******************************************************************/
-  // const loadImage = (src: string) => {
-  //   return new Promise<HTMLImageElement>((resolve, reject) => {
-  //     const image = new window.Image();
-  //     image.onload = () => resolve(image);
-  //     image.onerror = reject;
-  //     image.src = src;
-  //   });
-  // };
-
-  /*******************************************************************
-   * Name: handleSave
-   *******************************************************************/
-  // const handleSave = async () => {
-  //   try {
-  //     const stage = stageRef.current.getStage();
-  //     const dataURL = stage.toDataURL();
-  //     const konvaJSON = stage.toJSON();
-
-  //     // Calculate the scaling factor to maintain aspect ratio
-  //     const stageWidth = stage.width();
-  //     const stageHeight = stage.height();
-  //     const windowWidth = window.innerWidth;
-  //     const windowHeight = window.innerHeight;
-  //     const scaleX = windowWidth / stageWidth;
-  //     const scaleY = windowHeight / stageHeight;
-  //     const scale = Math.min(scaleX, scaleY);
-
-  //     // Calculate the composite canvas dimensions based on the scaled size
-  //     const compositeCanvasWidth = stageWidth * scale;
-  //     const compositeCanvasHeight = stageHeight * scale;
-
-  //     // Create a new canvas element to composite the image and draggable dataed
-  //     const compositeCanvas = document.createElement("canvas");
-  //     compositeCanvas.width = compositeCanvasWidth;
-  //     compositeCanvas.height = compositeCanvasHeight;
-  //     const compositeContext = compositeCanvas.getContext("2d");
-
-  //     // Calculate the visible area of the stage based on the image dimensions
-  //     const imageWidth = imageRef.current.width();
-  //     const imageHeight = imageRef.current.height();
-  //     const visibleArea = {
-  //       x: imageRef.current.x(),
-  //       y: imageRef.current.y(),
-  //       width: imageWidth,
-  //       height: imageHeight,
-  //     };
-
-  //     // Set the visible area as the clip property of the stage
-  //     stage.clip(visibleArea);
-
-  //     // Draw the image on the composite canvas
-  //     const image = await loadImage(dataURL);
-  //     compositeContext.drawImage(
-  //       image,
-  //       0,
-  //       0,
-  //       stageWidth,
-  //       stageHeight,
-  //       0,
-  //       0,
-  //       compositeCanvasWidth,
-  //       compositeCanvasHeight
-  //     );
-
-  //     // // Draw the draggable data text on the composite canvas
-  //     // draggableData.forEach((data) => {
-  //     //   const { position, value, width, height, textSize, textColor } = data;
-  //     //   const x = position.x * scale;
-  //     //   const y = position.y * scale;
-  //     //   const rectWidth = width * scale;
-  //     //   const rectHeight = height * scale;
-  //     //   const fontSize = textSize * scale;
-
-  //     //   // Fill the rectangle
-  //     //   compositeContext.fillStyle = "rgba(0, 0, 0, 0)"; // Set the rectangle color to black
-  //     //   compositeContext.fillRect(x, y, rectWidth, rectHeight);
-
-  //     //   // Fill the text with the provided textColor value
-  //     //   compositeContext.fillStyle = `${textColor}`; // Set the font color
-  //     //   compositeContext.font = `${fontSize}px Arial`;
-  //     //   compositeContext.fillText(value, x, y + fontSize);
-  //     // });
-
-  //     // Generate the composite image data URL
-  //     const compositeDataURL = compositeCanvas.toDataURL();
-
-  //     // Send the composite image data and other data to the server
-  //     const data = {
-  //       name: selectedFile?.name,
-  //       photo: compositeDataURL,
-  //       konvaJSON: konvaJSON,
-  //       draggableData: draggableData,
-  //       width: newImageDimensions.width,
-  //       height: newImageDimensions.height,
-  //     };
-
-  //     console.log(data);
-
-  //     const pdfDoc = await PDFDocument.create();
-  //     const pngImage = await pdfDoc.embedPng(compositeDataURL);
-
-  //     const pdfBytes = await pdfDoc.save(); // Convert the PDF document to bytes
-
-  //     const blobPDF = new Blob([pdfBytes], { type: 'application/pdf' });
-
-  //     formData.append('file', blobPDF, 'document.pdf');
-
-  //     formData.append('title', selectedFile?.name.toUpperCase());
-
-  //     formData.append('schoolId', '1');
-  //     const date = getCurrentDate();
-  //     formData.append('startDate', date);
-
-  //     formData.append('fileName', selectedFile?.name.toUpperCase());
-  //     // formData.append('startDate', );
-  //     //formData.append('startDate', date);
-  //     formData.append('category', 'General');
-  //     formData.append('knobs', JSON.stringify(draggableData));
-
-  //   // req.body.title, req.body.schoolid, req.body.startDate, req.body.category, req.body.fileName
-  //     const response = await fetch("http://localhost:8443/save-certificate", {
-  //       headers: {
-  //         "Authorization":"8BEYKFmSROr0iUV36SjUUOu38ZDgifivsFU2SzbUKNTXUQY0b42LkveyQ0Y7t4BtypcMnvrjLJL4o5SUoaE9siUrfS3wSUi2",
-  //         // "Content-Type": "multipart/form-data"
-  //       },
-  //       method: "POST",
-  //       body: formData
-  //     });
-  //     const newData = await response.json();
-  //     console.log("formData sent", newData);
-
-  //     // fetchfetconsole.log(newData);
-
-  //    formData.delete('file');
-  //     formData.delete('title');
-  //     formData.delete('schoolId');
-  //     formData.delete('startDate');
-  //     formData.delete('fileName');
-  //     formData.delete('category');
-  //     formData.delete('knobs');
-  //   } catch (error) {
-  //     console.log(error);
-  //     toast({
-  //       title: "Error",
-  //       description: error,
-  //     });
-  //   }
-  // };
-
+  
+  // *******************************************************************
+  // draggableData mobility functions 
+  // *******************************************************************
   const handleDragStart = (e, id) => {
     const draggableData = draggableDataRef.current.find(
       (data) => data.id === id
@@ -1143,10 +976,13 @@ const UploadPhoto = () => {
 
       setDraggableData(draggableDataCopy);
     }
-  };
+  }; 
+  // end of draggableData mobility functions
 
-  console.log(draggableData);
 
+  // *******************************************************************
+  // draggableData styling functions
+  // *******************************************************************
   const handleColorChange = (newColor, itemId) => {
     // Callback 1: Update color state using setColor
     setColor(newColor);
@@ -1160,15 +996,9 @@ const UploadPhoto = () => {
     });
     
     setDraggableData(updatedData);
-  };
+  }; // end of handleColorChange
 
-  // console.log("draggableData =---> image" + draggableData.map((item) => {
 
-  //     if (item.image) return {
-  //       ...item,
-  //     }
-
-  // }));
 
   return (
     <div className="relative bg-blank h-screen scrollbar-macos-style">
@@ -1333,7 +1163,6 @@ const UploadPhoto = () => {
                     <TableHeader>
                       <TableRow className="text-xs">
                         <TableHead className="w-[50px]">Title</TableHead>
-                        {/* <TableHead className="w-[90px]">Width</TableHead> */}
                         <TableHead className="w-[90px]"> Height</TableHead>
                         <TableHead className="w-[15px] text-right">
                           Reset
@@ -1365,59 +1194,6 @@ const UploadPhoto = () => {
                               ({data.position.x}, {data.position.y})
                             </span>
                           </TableCell>
-
-                          {/* <TableCell>
-                            <div className="flex">
-                              <input
-                                type="text"
-                                value={data.width}
-                                onChange={(event) =>
-                                  handleWidthChange(event, data.id)
-                                }
-                                className="px-2 border rounded-md h-4/5 py-2 my-auto"
-                                style={{ width: "50px" }}
-                              />
-                              <div className="flex flex-col mx-2">
-                                <button
-                                  // className="px-2 border rounded-md text-blue-500"
-                                  onClick={() => {
-                                    const newValue = data.width + 1;
-                                    handleWidthChange(
-                                      { target: { value: newValue } },
-                                      data.id
-                                    );
-                                  }}
-                                >
-                                  <span className="text-white text-[8px]">
-                                    ▲
-                                  </span>
-                                </button>
-
-                                <button
-                                  onClick={() => {
-                                    const newValue = data.width - 1;
-                                    if (newValue >= 1) {
-                                      handleWidthChange(
-                                        { target: { value: newValue } },
-                                        data.id
-                                      );
-                                    } else {
-                                      toast({
-                                        title: "Invalid Width",
-                                        description:
-                                          "Width cannot be less than 1",
-                                      });
-                                    }
-                                  }}
-                                >
-                                  <span className="text-white text-[8px]">
-                                    ▼
-                                  </span>
-                                </button>
-                              </div>
-                            </div>
-                          </TableCell> */}
-
                           <TableCell>
                             <div className="flex">
                               <input
